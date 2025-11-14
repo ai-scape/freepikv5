@@ -43,7 +43,9 @@ Freepik Clone is a Chrome-focused AI studio for triggering FAL and KIE pipelines
 - `flux-kontext-pro`, `nano-banana`, `nano-banana-edit`
 - `nano-banana` text mode now routes through KIE’s Jobs API (`/api/v1/jobs/createTask` + `recordInfo`) so the app polls for task completion before saving the blob locally.
 - `imagen-4`, `imagen-4-fast`
-- `qwen-image-edit-plus`, `seedream-v4-edit`, `chrono-edit`
+- `qwen-image-edit-plus` — now runs through the KIE Jobs API (`qwen/image-edit`) so acceleration, guidance scale, steps, and safety toggles map 1:1 to the provider request.
+- `seedream-v4-edit` — ByteDance Seedream edit flow via KIE Jobs (`bytedance/seedream-v4-edit`) with size/resolution/max-image controls surfaced in the UI.
+- `chrono-edit`
 
 Model specs live in:
 - `src/lib/models.json` — primary video definitions.
