@@ -116,7 +116,15 @@ export default function ControlsPane() {
     return undefined;
   }, [selectedVideo, selectedImage]);
 
+  const supportsStartFrame = selectedVideo?.supports.startFrame !== false;
   const supportsEndFrame = selectedVideo?.supports.endFrame === true;
+  const videoReferenceConfig = selectedVideo?.referenceImages;
+  const referenceLimit =
+    modelKind === "video"
+      ? videoReferenceConfig?.max ?? 0
+      : selectedImage?.maxRefs ?? 0;
+  const referenceMin =
+    modelKind === "video" ? videoReferenceConfig?.min ?? 0 : 0;
   const registerPreview = useCallback((url: string) => {
     previewRegistry.current.add(url);
     return url;
@@ -235,8 +243,15 @@ export default function ControlsPane() {
 
   const handleReferenceFiles = useCallback(
     async (files: FileList | File[] | null) => {
-      if (!files || !selectedImage) return;
-      const limit = selectedImage.maxRefs ?? 0;
+      if (!files) return;
+      const limit =
+        modelKind === "video"
+          ? videoReferenceConfig?.max ?? 0
+          : selectedImage?.maxRefs ?? 0;
+      if (limit === 0) {
+        setStatus("This model does not accept reference uploads.");
+        return;
+      }
       const currentCount = referenceUploads.length;
       const validFiles = Array.from(files).filter((file) =>
         file.type.startsWith("image/")
@@ -245,8 +260,9 @@ export default function ControlsPane() {
       if (limit > 0) {
         const remaining = Math.max(0, limit - currentCount);
         if (remaining === 0) {
+          const scope = modelKind === "video" ? "This model" : "This pipeline";
           setStatus(
-            `This model allows up to ${limit} reference image${limit === 1 ? "" : "s"}. Remove one to add another.`
+            `${scope} allows up to ${limit} reference image${limit === 1 ? "" : "s"}. Remove one to add another.`
           );
           return;
         }
@@ -297,7 +313,14 @@ export default function ControlsPane() {
         }
       }
     },
-    [registerPreview, referenceUploads.length, selectedImage, setStatus]
+    [
+      modelKind,
+      registerPreview,
+      referenceUploads.length,
+      selectedImage,
+      setStatus,
+      videoReferenceConfig?.max,
+    ]
   );
 
   const removeReference = useCallback(
@@ -313,11 +336,18 @@ export default function ControlsPane() {
     [releasePreview]
   );
 
-  const referenceUrls =
-    selectedImage && selectedImage.maxRefs !== 0
-      ? referenceUploads
-          .filter((entry) => Boolean(entry.url))
-          .map((entry) => entry.url as string)
+  const uploadedReferenceUrls = referenceUploads
+    .filter((entry) => Boolean(entry.url))
+    .map((entry) => entry.url as string);
+
+  const imageReferenceUrls =
+    modelKind === "image" && (selectedImage?.maxRefs ?? 0) !== 0
+      ? uploadedReferenceUrls
+      : [];
+
+  const videoReferenceUrls =
+    modelKind === "video" && videoReferenceConfig
+      ? uploadedReferenceUrls
       : [];
 
   const handleStartFrameDrop = useCallback(
@@ -388,17 +418,25 @@ export default function ControlsPane() {
   }, [selectedVideo]);
 
   useEffect(() => {
-    if (modelKind === "video") {
-      setReferenceUploads([]);
+    const limit =
+      modelKind === "video"
+        ? videoReferenceConfig?.max ?? 0
+        : selectedImage?.maxRefs ?? 0;
+    if (limit === 0) {
+      if (referenceUploads.length) {
+        setReferenceUploads([]);
+      }
       return;
     }
-    const limit = selectedImage?.maxRefs ?? 0;
-    if (limit === 0) {
-      setReferenceUploads([]);
-    } else if (referenceUploads.length > limit) {
+    if (referenceUploads.length > limit) {
       setReferenceUploads((prev) => prev.slice(0, limit));
     }
-  }, [modelKind, selectedImage?.maxRefs, referenceUploads.length]);
+  }, [
+    modelKind,
+    selectedImage?.maxRefs,
+    videoReferenceConfig?.max,
+    referenceUploads.length,
+  ]);
 
   const handleParamChange = (
     key: string,
@@ -531,15 +569,27 @@ export default function ControlsPane() {
       let callOptions: ProviderCallOptions | undefined;
 
       if (modelKind === "video" && selectedVideo) {
-        if (!startFrame.url) {
+        if (supportsStartFrame && !startFrame.url) {
           throw new Error("Start frame is required.");
+        }
+        if (
+          videoReferenceConfig?.min &&
+          videoReferenceUrls.length < videoReferenceConfig.min
+        ) {
+          throw new Error(
+            `Add at least ${videoReferenceConfig.min} reference image${
+              videoReferenceConfig.min === 1 ? "" : "s"
+            }.`
+          );
         }
 
         const unified: UnifiedPayload = {
           modelId: selectedVideo.id,
           prompt: prompt.trim(),
-          start_frame_url: startFrame.url,
         };
+        if (supportsStartFrame && startFrame.url) {
+          unified.start_frame_url = startFrame.url;
+        }
 
         if (supportsEndFrame && endFrame.url) {
           unified.end_frame_url = endFrame.url;
@@ -568,6 +618,15 @@ export default function ControlsPane() {
           (unified as Record<string, unknown>)[uiKey as string] = rawValue;
         });
 
+        if (videoReferenceUrls.length) {
+          unified.reference_image_urls = videoReferenceUrls;
+        }
+
+        const parsedSeed = parseSeed();
+        if (parsedSeed !== undefined) {
+          unified.seed = parsedSeed;
+        }
+
         endpoint = selectedVideo.endpoint;
         payload = buildModelInput(selectedVideo, unified);
         modelId = selectedVideo.id;
@@ -579,7 +638,7 @@ export default function ControlsPane() {
       } else if (modelKind === "image" && selectedImage) {
         if (
           (selectedImage.maxRefs ?? 0) > 0 &&
-          referenceUrls.length === 0
+          imageReferenceUrls.length === 0
         ) {
           throw new Error("Add at least one reference image.");
         }
@@ -591,7 +650,7 @@ export default function ControlsPane() {
 
         const imageJob: ImageJob = {
           prompt: prompt.trim(),
-          imageUrls: referenceUrls,
+          imageUrls: imageReferenceUrls,
           size,
           seed: parseSeed(),
           temporal: selectedImage.id === "chrono-edit" ? temporal : undefined,
@@ -675,158 +734,79 @@ export default function ControlsPane() {
 
       {modelKind === "video" ? (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <div className="flex-1 min-w-[160px] space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Start frame (required)
-              </label>
-              <div
-                className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
-                  isStartDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
-                }`}
-                onDragEnter={(event) => {
-                  event.preventDefault();
-                  setIsStartDragActive(true);
-                }}
-                onDragLeave={(event) => {
-                  event.preventDefault();
-                  setIsStartDragActive(false);
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setIsStartDragActive(true);
-                }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsStartDragActive(false);
-                void handleStartFrameDrop(event.dataTransfer);
-              }}
-              >
-                <input
-                  ref={startInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                    const file = event.target.files?.[0] ?? null;
-                    void handleStartFrameSelect(file);
-                    event.target.value = "";
-                  }}
-                />
-                {startFrame.preview ? (
-                  <img
-                    src={startFrame.preview}
-                    alt="Start frame preview"
-                    className="h-32 w-full rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                    Drag & drop <br /> first frame
-                  </div>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                  <button
-                    type="button"
-                    className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                    onClick={() => startInputRef.current?.click()}
-                  >
-                    Browse
-                  </button>
-                  {startFrame.uploading ? (
-                    <span className="inline-flex items-center gap-1 text-sky-200">
-                      <Spinner size="sm" /> Uploading…
-                    </span>
-                  ) : startFrame.url ? (
-                    <span className="text-emerald-300">Ready</span>
-                  ) : null}
-                  {startFrame.name ? (
-                    <span className="truncate text-slate-500">{startFrame.name}</span>
-                  ) : null}
-                  {startFrame.url || startFrame.preview ? (
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                      onClick={() => handleStartFrameSelect(null)}
-                    >
-                      Clear
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            {supportsEndFrame ? (
+          {supportsStartFrame ? (
+            <div className="flex flex-wrap gap-2">
               <div className="flex-1 min-w-[160px] space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  End frame (optional)
+                  Start frame (required)
                 </label>
                 <div
                   className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
-                    isEndDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
+                    isStartDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
                   }`}
                   onDragEnter={(event) => {
                     event.preventDefault();
-                    setIsEndDragActive(true);
+                    setIsStartDragActive(true);
                   }}
                   onDragLeave={(event) => {
                     event.preventDefault();
-                    setIsEndDragActive(false);
+                    setIsStartDragActive(false);
                   }}
                   onDragOver={(event) => {
                     event.preventDefault();
-                    setIsEndDragActive(true);
+                    setIsStartDragActive(true);
                   }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setIsEndDragActive(false);
-                  void handleEndFrameDrop(event.dataTransfer);
-                }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsStartDragActive(false);
+                    void handleStartFrameDrop(event.dataTransfer);
+                  }}
                 >
                   <input
-                    ref={endInputRef}
+                    ref={startInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       const file = event.target.files?.[0] ?? null;
-                      void handleEndFrameSelect(file);
+                      void handleStartFrameSelect(file);
                       event.target.value = "";
                     }}
                   />
-                  {endFrame.preview ? (
+                  {startFrame.preview ? (
                     <img
-                      src={endFrame.preview}
-                      alt="End frame preview"
+                      src={startFrame.preview}
+                      alt="Start frame preview"
                       className="h-32 w-full rounded-xl object-cover"
                     />
                   ) : (
                     <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                      Drag & drop <br /> last frame
+                      Drag & drop <br /> first frame
                     </div>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
                     <button
                       type="button"
                       className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                      onClick={() => endInputRef.current?.click()}
+                      onClick={() => startInputRef.current?.click()}
                     >
                       Browse
                     </button>
-                    {endFrame.uploading ? (
+                    {startFrame.uploading ? (
                       <span className="inline-flex items-center gap-1 text-sky-200">
                         <Spinner size="sm" /> Uploading…
                       </span>
-                    ) : endFrame.url ? (
+                    ) : startFrame.url ? (
                       <span className="text-emerald-300">Ready</span>
                     ) : null}
-                    {endFrame.name ? (
-                      <span className="truncate text-slate-500">{endFrame.name}</span>
+                    {startFrame.name ? (
+                      <span className="truncate text-slate-500">{startFrame.name}</span>
                     ) : null}
-                    {endFrame.url || endFrame.preview ? (
+                    {startFrame.url || startFrame.preview ? (
                       <button
                         type="button"
                         className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                        onClick={() => handleEndFrameSelect(null)}
+                        onClick={() => handleStartFrameSelect(null)}
                       >
                         Clear
                       </button>
@@ -834,113 +814,92 @@ export default function ControlsPane() {
                   </div>
                 </div>
               </div>
-            ) : null}
-          </div>
+
+              {supportsEndFrame ? (
+                <div className="flex-1 min-w-[160px] space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    End frame (optional)
+                  </label>
+                  <div
+                    className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
+                      isEndDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
+                    }`}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      setIsEndDragActive(true);
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault();
+                      setIsEndDragActive(false);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsEndDragActive(true);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setIsEndDragActive(false);
+                      void handleEndFrameDrop(event.dataTransfer);
+                    }}
+                  >
+                    <input
+                      ref={endInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                        const file = event.target.files?.[0] ?? null;
+                        void handleEndFrameSelect(file);
+                        event.target.value = "";
+                      }}
+                    />
+                    {endFrame.preview ? (
+                      <img
+                        src={endFrame.preview}
+                        alt="End frame preview"
+                        className="h-32 w-full rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
+                        Drag & drop <br /> last frame
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
+                        onClick={() => endInputRef.current?.click()}
+                      >
+                        Browse
+                      </button>
+                      {endFrame.uploading ? (
+                        <span className="inline-flex items-center gap-1 text-sky-200">
+                          <Spinner size="sm" /> Uploading…
+                        </span>
+                      ) : endFrame.url ? (
+                        <span className="text-emerald-300">Ready</span>
+                      ) : null}
+                      {endFrame.name ? (
+                        <span className="truncate text-slate-500">{endFrame.name}</span>
+                      ) : null}
+                      {endFrame.url || endFrame.preview ? (
+                        <button
+                          type="button"
+                          className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
+                          onClick={() => handleEndFrameSelect(null)}
+                        >
+                          Clear
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
-          {selectedImage && (selectedImage.maxRefs ?? 0) > 0 ? (
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Reference images
-              </label>
-              <div
-                className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-4 transition ${
-                  isReferenceDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
-                }`}
-                onDragEnter={(event) => {
-                  event.preventDefault();
-                  setIsReferenceDragActive(true);
-                }}
-                onDragLeave={(event) => {
-                  event.preventDefault();
-                  setIsReferenceDragActive(false);
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setIsReferenceDragActive(true);
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setIsReferenceDragActive(false);
-                  void handleReferenceDrop(event.dataTransfer);
-                }}
-              >
-                <input
-                  ref={referenceInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                    void handleReferenceFiles(event.target.files);
-                    event.target.value = "";
-                  }}
-                />
-                <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
-                  <span>
-                    Drag & drop reference frames or click browse.
-                  </span>
-                  {selectedImage.maxRefs ? (
-                    <span className="text-[11px] text-slate-500">
-                      Slots: {Math.max(0, selectedImage.maxRefs - referenceUploads.length)} /{" "}
-                      {selectedImage.maxRefs}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
-                    onClick={() => referenceInputRef.current?.click()}
-                  >
-                    Browse files
-                  </button>
-                  {referenceUploads.some((entry) => entry.uploading) ? (
-                    <span className="inline-flex items-center gap-1 text-sky-200">
-                      <Spinner size="sm" /> Uploading…
-                    </span>
-                  ) : null}
-                </div>
-                {referenceUploads.length ? (
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {referenceUploads.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
-                      >
-                        <div className="relative">
-                          <img
-                            src={entry.preview}
-                            alt={entry.name}
-                            className="h-20 w-full rounded-lg object-cover"
-                          />
-                          <button
-                            type="button"
-                            className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
-                            onClick={() => removeReference(entry.id)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                        <div className="mt-2 truncate font-semibold text-white">
-                          {entry.name}
-                        </div>
-                        <div className="text-slate-400">
-                          {entry.uploading
-                            ? "Uploading…"
-                            : entry.error
-                              ? `Error: ${entry.error}`
-                              : "Ready"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -993,6 +952,112 @@ export default function ControlsPane() {
           ) : null}
         </>
       )}
+
+      {referenceLimit > 0 ? (
+        <div className="space-y-1">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Reference images
+          </label>
+          <div
+            className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-4 transition ${
+              isReferenceDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
+            }`}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsReferenceDragActive(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              setIsReferenceDragActive(false);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsReferenceDragActive(true);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsReferenceDragActive(false);
+              void handleReferenceDrop(event.dataTransfer);
+            }}
+          >
+            <input
+              ref={referenceInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                void handleReferenceFiles(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
+              <span>
+                {modelKind === "video"
+                  ? "Drag & drop supporting stills or click browse."
+                  : "Drag & drop reference frames or click browse."}
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Slots: {Math.max(0, referenceLimit - referenceUploads.length)} / {referenceLimit}
+              </span>
+            </div>
+            {referenceMin ? (
+              <div className="mt-1 text-[11px] text-slate-500">
+                Requires at least {referenceMin} image{referenceMin === 1 ? "" : "s"}.
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                onClick={() => referenceInputRef.current?.click()}
+              >
+                Browse files
+              </button>
+              {referenceUploads.some((entry) => entry.uploading) ? (
+                <span className="inline-flex items-center gap-1 text-sky-200">
+                  <Spinner size="sm" /> Uploading…
+                </span>
+              ) : null}
+            </div>
+            {referenceUploads.length ? (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {referenceUploads.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
+                  >
+                    <div className="relative">
+                      <img
+                        src={entry.preview}
+                        alt={entry.name}
+                        className="h-20 w-full rounded-lg object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
+                        onClick={() => removeReference(entry.id)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="mt-2 truncate font-semibold text-white">
+                      {entry.name}
+                    </div>
+                    <div className="text-slate-400">
+                      {entry.uploading
+                        ? "Uploading…"
+                        : entry.error
+                          ? `Error: ${entry.error}`
+                          : "Ready"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-1">
         <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">

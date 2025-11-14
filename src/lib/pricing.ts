@@ -28,7 +28,11 @@ const MODEL_PRICING: Record<string, PricingInfo> = {
   // Video models
   "kling-2.5-pro": { unit: "video", amount: 0.35, currency: "USD" },
   "kling-2.1-pro": { unit: "video", amount: 0.45, currency: "USD" },
-  "veo-3.1-fast-flf2v": { unit: "video", amount: 0.75, currency: "USD" },
+  "veo-3.1-quality-text": { unit: "video", note: FALLBACK_NOTE },
+  "veo-3.1-quality-firstlast": { unit: "video", note: FALLBACK_NOTE },
+  "veo-3.1-fast-text": { unit: "video", amount: 0.75, currency: "USD" },
+  "veo-3.1-fast-firstlast": { unit: "video", amount: 0.75, currency: "USD" },
+  "veo-3.1-fast-reference": { unit: "video", amount: 0.75, currency: "USD" },
   "ltx-2-pro": { unit: "video", amount: 0.36, currency: "USD" },
   "ltx-2-fast": { unit: "video", amount: 0.24, currency: "USD" },
   "hailuo-2.3-pro": { unit: "video", amount: 0.49, currency: "USD" },

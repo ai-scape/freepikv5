@@ -42,8 +42,31 @@
       "output": { "videoPath": "video.url" }
     },
     {
-      "id": "veo-3.1-fast-flf2v",
-      "endpoint": "fal-ai/veo3.1/fast/first-last-frame-to-video",
+      "id": "veo-3.1-quality-text",
+      "label": "Veo 3.1 Quality — Text",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "supports": {
+        "startFrame": false,
+        "endFrame": false,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
+        "seed": { "type": "number" },
+        "enable_translation": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "veo-3.1-quality-firstlast",
+      "label": "Veo 3.1 Quality — First & Last",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
       "supports": {
         "startFrame": true,
         "endFrame": true,
@@ -53,13 +76,79 @@
         "fps": false
       },
       "params": {
-        "first_frame_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
-        "last_frame_url": { "type": "string", "required": true, "uiKey": "end_frame_url" },
         "prompt": { "type": "string", "required": true },
-        "duration": { "type": "enum", "values": ["8s"], "default": "8s" },
-        "aspect_ratio": { "type": "enum", "values": ["auto", "9:16", "16:9", "1:1"], "default": "auto" },
-        "resolution": { "type": "enum", "values": ["720p", "1080p"], "default": "720p" },
-        "generate_audio": { "type": "boolean", "default": true }
+        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
+        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
+        "seed": { "type": "number" },
+        "enable_translation": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "veo-3.1-fast-text",
+      "label": "Veo 3.1 Fast — Text",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "supports": {
+        "startFrame": false,
+        "endFrame": false,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
+        "seed": { "type": "number" },
+        "enable_translation": { "type": "boolean", "default": true },
+        "enable_prompt_expansion": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "veo-3.1-fast-firstlast",
+      "label": "Veo 3.1 Fast — First & Last",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "supports": {
+        "startFrame": true,
+        "endFrame": true,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
+        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
+        "seed": { "type": "number" },
+        "enable_translation": { "type": "boolean", "default": true },
+        "enable_prompt_expansion": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "veo-3.1-fast-reference",
+      "label": "Veo 3.1 Fast — Reference",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "supports": {
+        "startFrame": false,
+        "endFrame": false,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "referenceImages": { "min": 1, "max": 3 },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "aspect_ratio": { "type": "enum", "values": ["16:9"], "default": "16:9" },
+        "seed": { "type": "number" },
+        "enable_translation": { "type": "boolean", "default": true },
+        "enable_prompt_expansion": { "type": "boolean", "default": true }
       },
       "output": { "videoPath": "video.url" }
     },
@@ -114,14 +203,16 @@
         "startFrame": true,
         "endFrame": false,
         "audio": "unspecified",
-        "resolution": "unspecified",
+        "resolution": true,
         "aspectRatio": "unspecified",
         "fps": "unspecified"
       },
       "params": {
         "prompt": { "type": "string", "required": true },
         "prompt_optimizer": { "type": "boolean", "default": true },
-        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" }
+        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
+        "duration": { "type": "enum", "values": ["6", "10"], "default": "6" },
+        "resolution": { "type": "enum", "values": ["768P", "1080P"], "default": "768P" }
       },
       "output": { "videoPath": "video.url" }
     }

@@ -31,11 +31,11 @@ Freepik Clone is a Chrome-focused AI studio for triggering FAL and KIE pipelines
 ## Model Catalog Reference
 
 ### Video Pipelines
-- `kling-2.5-pro` — turbo I2V with negative prompt defaults + CFG scaling.
+- `kling-2.5-pro` and `kling-2.1-pro` — turbo I2V pipelines now routed through KIE Jobs API polling.
 - `kling-2.1-pro` — adds end-frame control for transitions.
-- `veo-3.1-fast-flf2v` — Google Veo first/last-frame with audio + resolution toggles.
+- `veo-3.1-quality-text`, `veo-3.1-quality-firstlast`, `veo-3.1-fast-text`, `veo-3.1-fast-firstlast`, `veo-3.1-fast-reference` — Veo 3.1 pipelines via KIE Jobs (text-only, first/last frames, and reference material modes).
 - `ltx-2-pro`, `ltx-2-fast` — Lightricks LTX variants with FPS / resolution knobs.
-- `hailuo-2.3-pro`, `hailuo-02-pro` — Minimax pipelines with prompt optimizers.
+- `hailuo-2.3-pro`, `hailuo-02-pro` — Minimax pipelines with prompt optimizers (both routed via KIE Jobs API).
 - `seedance-pro-fast`, `seedance-pro` — ByteDance Seedance endpoints.
 - `wan-2.2-turbo`, `wan-2.5-i2v` — Wán diffusion video suites.
 

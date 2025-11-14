@@ -37,6 +37,10 @@ export type ModelSpec = {
   output: {
     videoPath: string;
   };
+  referenceImages?: {
+    min?: number;
+    max: number;
+  };
   taskConfig?: TaskPollingConfig;
   adapter?: {
     mapInput(unified: UnifiedPayload): Record<string, FalInputValue>;
@@ -47,7 +51,7 @@ export type ModelSpec = {
 export type UnifiedPayload = {
   modelId: string;
   prompt: string;
-  start_frame_url: string;
+  start_frame_url?: string;
   end_frame_url?: string;
   duration?: string | number;
   aspect_ratio?: string;
@@ -57,6 +61,11 @@ export type UnifiedPayload = {
   negative_prompt?: string;
   cfg_scale?: number;
   prompt_optimizer?: boolean;
+  reference_image_urls?: string[];
+  enable_prompt_expansion?: boolean;
+  enable_translation?: boolean;
+  watermark?: string;
+  seed?: number;
 };
 
 const jsonSpecs =
@@ -65,6 +74,280 @@ const jsonSpecs =
     label: spec.label ?? spec.id,
     provider: spec.provider ?? "fal",
   })) ?? [];
+
+const kling25 = jsonSpecs.find((spec) => spec.id === "kling-2.5-pro");
+if (kling25) {
+  kling25.provider = "kie";
+  kling25.endpoint = "/api/v1/jobs/createTask";
+  kling25.taskConfig = {
+    statusEndpoint: "/api/v1/jobs/recordInfo",
+    statePath: "data.state",
+    successStates: ["success"],
+    failureStates: ["fail"],
+    responseDataPath: "data",
+    pollIntervalMs: 4000,
+  };
+  kling25.adapter = {
+    mapInput: (unified) => {
+      if (!unified.start_frame_url) {
+        throw new Error("Start frame is required for Kling 2.5 Pro.");
+      }
+      const input: Record<string, string | number> & {
+        prompt: string;
+        image_url: string;
+      } = {
+        prompt: unified.prompt,
+        image_url: unified.start_frame_url,
+      };
+      if (unified.duration !== undefined) {
+        input.duration = String(unified.duration);
+      }
+      if (unified.negative_prompt) {
+        input.negative_prompt = unified.negative_prompt;
+      }
+      if (typeof unified.cfg_scale === "number") {
+        input.cfg_scale = unified.cfg_scale;
+      }
+      return {
+        model: "kling/v2-5-turbo-image-to-video-pro",
+        input,
+      };
+    },
+    getVideoUrl: (data) => {
+      const json = (data as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof json !== "string") return undefined;
+      try {
+        const parsed = JSON.parse(json) as {
+          resultUrls?: string[];
+        };
+        return (parsed.resultUrls ?? []).find(
+          (url): url is string => typeof url === "string" && url.startsWith("http")
+        );
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
+
+const kling21 = jsonSpecs.find((spec) => spec.id === "kling-2.1-pro");
+if (kling21) {
+  kling21.provider = "kie";
+  kling21.endpoint = "/api/v1/jobs/createTask";
+  kling21.taskConfig = {
+    statusEndpoint: "/api/v1/jobs/recordInfo",
+    statePath: "data.state",
+    successStates: ["success"],
+    failureStates: ["fail"],
+    responseDataPath: "data",
+    pollIntervalMs: 4000,
+  };
+  kling21.adapter = {
+    mapInput: (unified) => {
+      if (!unified.start_frame_url) {
+        throw new Error("Start frame is required for Kling 2.1 Pro.");
+      }
+      const input: Record<string, string | number> & {
+        prompt: string;
+        image_url: string;
+      } = {
+        prompt: unified.prompt,
+        image_url: unified.start_frame_url,
+      };
+      if (unified.end_frame_url) {
+        input.tail_image_url = unified.end_frame_url;
+      }
+      if (unified.duration !== undefined) {
+        input.duration = String(unified.duration);
+      }
+      if (unified.negative_prompt) {
+        input.negative_prompt = unified.negative_prompt;
+      }
+      if (typeof unified.cfg_scale === "number") {
+        input.cfg_scale = unified.cfg_scale;
+      }
+      return {
+        model: "kling/v2-1-pro",
+        input,
+      };
+    },
+    getVideoUrl: (data) => {
+      const json = (data as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof json !== "string") return undefined;
+      try {
+        const parsed = JSON.parse(json) as { resultUrls?: string[] };
+        return (parsed.resultUrls ?? []).find((url) =>
+          typeof url === "string" && url.startsWith("http")
+        );
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
+
+const hailuo23 = jsonSpecs.find((spec) => spec.id === "hailuo-2.3-pro");
+if (hailuo23) {
+  hailuo23.provider = "kie";
+  hailuo23.endpoint = "/api/v1/jobs/createTask";
+  hailuo23.taskConfig = {
+    statusEndpoint: "/api/v1/jobs/recordInfo",
+    statePath: "data.state",
+    successStates: ["success"],
+    failureStates: ["fail"],
+    responseDataPath: "data",
+    pollIntervalMs: 4000,
+  };
+  hailuo23.adapter = {
+    mapInput: (unified) => {
+      if (!unified.start_frame_url) {
+        throw new Error("Start frame is required for Hailuo 2.3.");
+      }
+      const input: Record<string, string | number | boolean> & {
+        prompt: string;
+        image_url: string;
+      } = {
+        prompt: unified.prompt,
+        image_url: unified.start_frame_url,
+      };
+      if (unified.duration !== undefined) {
+        input.duration = String(unified.duration);
+      }
+      if (unified.resolution) {
+        input.resolution = unified.resolution;
+      }
+      if (typeof unified.prompt_optimizer === "boolean") {
+        input.prompt_optimizer = unified.prompt_optimizer;
+      }
+      return {
+        model: "hailuo/2-3-image-to-video-pro",
+        input,
+      };
+    },
+    getVideoUrl: (data) => {
+      const json = (data as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof json !== "string") return undefined;
+      try {
+        const parsed = JSON.parse(json) as { resultUrls?: string[] };
+        return (parsed.resultUrls ?? []).find((url) =>
+          typeof url === "string" && url.startsWith("http")
+        );
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
+
+const VEO_CONFIG: Record<
+  string,
+  {
+    apiModel: "veo3" | "veo3_fast";
+    generationType: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO";
+    requiresStart: boolean;
+    allowEnd?: boolean;
+    reference?: { min?: number; max: number };
+  }
+> = {
+  "veo-3.1-quality-text": {
+    apiModel: "veo3",
+    generationType: "TEXT_2_VIDEO",
+    requiresStart: false,
+  },
+  "veo-3.1-quality-firstlast": {
+    apiModel: "veo3",
+    generationType: "FIRST_AND_LAST_FRAMES_2_VIDEO",
+    requiresStart: true,
+    allowEnd: true,
+  },
+  "veo-3.1-fast-text": {
+    apiModel: "veo3_fast",
+    generationType: "TEXT_2_VIDEO",
+    requiresStart: false,
+  },
+  "veo-3.1-fast-firstlast": {
+    apiModel: "veo3_fast",
+    generationType: "FIRST_AND_LAST_FRAMES_2_VIDEO",
+    requiresStart: true,
+    allowEnd: true,
+  },
+  "veo-3.1-fast-reference": {
+    apiModel: "veo3_fast",
+    generationType: "REFERENCE_2_VIDEO",
+    requiresStart: false,
+    reference: { min: 1, max: 3 },
+  },
+};
+
+for (const [modelId, config] of Object.entries(VEO_CONFIG)) {
+  const target = jsonSpecs.find((spec) => spec.id === modelId);
+  if (!target) continue;
+  target.provider = "kie";
+  target.endpoint = "/api/v1/jobs/createTask";
+  target.taskConfig = {
+    statusEndpoint: "/api/v1/jobs/recordInfo",
+    statePath: "data.state",
+    successStates: ["success"],
+    failureStates: ["fail"],
+    responseDataPath: "data",
+    pollIntervalMs: 4000,
+  };
+  if (config.reference) {
+    target.referenceImages = config.reference;
+  }
+  target.adapter = {
+    mapInput: (unified) => {
+      const aspectRatio = unified.aspect_ratio ?? "16:9";
+      if (
+        config.generationType === "REFERENCE_2_VIDEO" &&
+        aspectRatio !== "16:9"
+      ) {
+        throw new Error("Veo reference mode only supports 16:9 aspect ratio.");
+      }
+      const imageUrls: string[] = [];
+      if (config.requiresStart) {
+        if (!unified.start_frame_url) {
+          throw new Error("Start frame is required for this Veo model.");
+        }
+        imageUrls.push(unified.start_frame_url);
+        if (config.allowEnd && unified.end_frame_url) {
+          imageUrls.push(unified.end_frame_url);
+        }
+      }
+      if (config.reference && unified.reference_image_urls?.length) {
+        imageUrls.push(
+          ...unified.reference_image_urls.slice(0, config.reference.max)
+        );
+      }
+      return {
+        model: config.apiModel,
+        generationType: config.generationType,
+        prompt: unified.prompt,
+        ...(imageUrls.length ? { imageUrls } : {}),
+        aspectRatio,
+        ...(unified.enable_translation !== undefined
+          ? { enableTranslation: unified.enable_translation }
+          : {}),
+        ...(unified.enable_prompt_expansion !== undefined
+          ? { enablePromptExpansion: unified.enable_prompt_expansion }
+          : {}),
+        ...(unified.seed !== undefined ? { seeds: unified.seed } : {}),
+      };
+    },
+    getVideoUrl: (data) => {
+      const json = (data as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof json !== "string") return undefined;
+      try {
+        const parsed = JSON.parse(json) as { resultUrls?: string[] };
+        return (parsed.resultUrls ?? []).find(
+          (url) => typeof url === "string" && url.startsWith("http")
+        );
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
 
 const RESOLUTION_CONFIG: Record<
   string,
@@ -158,16 +441,22 @@ const extraSpecs: ModelSpec[] = EXTRA_MODELS.map((extra: ExtraModelSpec): ModelS
     output: {
       videoPath: "video.url",
     },
+    referenceImages: extra.referenceImages,
     taskConfig: extra.taskConfig,
     adapter: {
-      mapInput: (unified) =>
-        extra.mapInput({
+      mapInput: (unified) => {
+        if (!unified.start_frame_url) {
+          throw new Error("Start frame is required for this model.");
+        }
+        return extra.mapInput({
           prompt: unified.prompt,
           startUrl: unified.start_frame_url,
           endUrl: unified.end_frame_url,
           aspectRatio: unified.aspect_ratio,
           resolution: unified.resolution,
-        }),
+          promptOptimizer: unified.prompt_optimizer,
+        }) as Record<string, FalInputValue>;
+      },
       getVideoUrl: (data) => extra.getVideoUrl(data),
     },
   };
@@ -201,7 +490,13 @@ function coerceEnumValue(
   return fallback;
 }
 
-type FalInputValue = string | number | boolean | undefined;
+type FalInputValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | Record<string, unknown>
+  | string[];
 
 export function buildModelInput(
   model: ModelSpec,
