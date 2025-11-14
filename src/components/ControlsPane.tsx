@@ -705,188 +705,109 @@ export default function ControlsPane() {
   };
 
   return (
-    <form className="flex flex-col gap-3 text-sm" onSubmit={handleGenerate}>
-      <div className="space-y-1">
-        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Model
-        </label>
-        <select
-          value={modelKey}
-          onChange={(event) => setModelKey(event.target.value)}
-          className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-        >
-          <optgroup label="Video Pipelines">
-            {MODEL_SPECS.map((spec) => (
-              <option key={spec.id} value={`video:${spec.id}`}>
-                {spec.label ?? spec.id}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Image Pipelines">
-            {IMAGE_MODELS.map((spec) => (
-              <option key={spec.id} value={`image:${spec.id}`}>
-                {spec.label}
-              </option>
-            ))}
-          </optgroup>
-        </select>
-      </div>
+    <form className="flex h-full flex-col text-sm" onSubmit={handleGenerate}>
+      <div className="flex-1 space-y-3 pb-40">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Model
+          </label>
+          <select
+            value={modelKey}
+            onChange={(event) => setModelKey(event.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+          >
+            <optgroup label="Video Pipelines">
+              {MODEL_SPECS.map((spec) => (
+                <option key={spec.id} value={`video:${spec.id}`}>
+                  {spec.label ?? spec.id}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Image Pipelines">
+              {IMAGE_MODELS.map((spec) => (
+                <option key={spec.id} value={`image:${spec.id}`}>
+                  {spec.label}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
 
-      {modelKind === "video" ? (
-        <div className="space-y-3">
-          {supportsStartFrame ? (
-            <div className="flex flex-wrap gap-2">
-              <div className="flex-1 min-w-[160px] space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Start frame (required)
-                </label>
-                <div
-                  className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
-                    isStartDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
-                  }`}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    setIsStartDragActive(true);
-                  }}
-                  onDragLeave={(event) => {
-                    event.preventDefault();
-                    setIsStartDragActive(false);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setIsStartDragActive(true);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setIsStartDragActive(false);
-                    void handleStartFrameDrop(event.dataTransfer);
-                  }}
-                >
-                  <input
-                    ref={startInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                      const file = event.target.files?.[0] ?? null;
-                      void handleStartFrameSelect(file);
-                      event.target.value = "";
-                    }}
-                  />
-                  {startFrame.preview ? (
-                    <img
-                      src={startFrame.preview}
-                      alt="Start frame preview"
-                      className="h-32 w-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                      Drag & drop <br /> first frame
-                    </div>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                      onClick={() => startInputRef.current?.click()}
-                    >
-                      Browse
-                    </button>
-                    {startFrame.uploading ? (
-                      <span className="inline-flex items-center gap-1 text-sky-200">
-                        <Spinner size="sm" /> Uploading…
-                      </span>
-                    ) : startFrame.url ? (
-                      <span className="text-emerald-300">Ready</span>
-                    ) : null}
-                    {startFrame.name ? (
-                      <span className="truncate text-slate-500">{startFrame.name}</span>
-                    ) : null}
-                    {startFrame.url || startFrame.preview ? (
-                      <button
-                        type="button"
-                        className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                        onClick={() => handleStartFrameSelect(null)}
-                      >
-                        Clear
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              {supportsEndFrame ? (
+        {modelKind === "video" ? (
+          <div className="space-y-3">
+            {supportsStartFrame ? (
+              <div className="flex flex-wrap gap-2">
                 <div className="flex-1 min-w-[160px] space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    End frame (optional)
+                    Start frame (required)
                   </label>
                   <div
                     className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
-                      isEndDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
+                      isStartDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
                     }`}
                     onDragEnter={(event) => {
                       event.preventDefault();
-                      setIsEndDragActive(true);
+                      setIsStartDragActive(true);
                     }}
                     onDragLeave={(event) => {
                       event.preventDefault();
-                      setIsEndDragActive(false);
+                      setIsStartDragActive(false);
                     }}
                     onDragOver={(event) => {
                       event.preventDefault();
-                      setIsEndDragActive(true);
+                      setIsStartDragActive(true);
                     }}
                     onDrop={(event) => {
                       event.preventDefault();
-                      setIsEndDragActive(false);
-                      void handleEndFrameDrop(event.dataTransfer);
+                      setIsStartDragActive(false);
+                      void handleStartFrameDrop(event.dataTransfer);
                     }}
                   >
                     <input
-                      ref={endInputRef}
+                      ref={startInputRef}
                       type="file"
                       accept="image/*"
                       className="hidden"
                       onChange={(event: ChangeEvent<HTMLInputElement>) => {
                         const file = event.target.files?.[0] ?? null;
-                        void handleEndFrameSelect(file);
+                        void handleStartFrameSelect(file);
                         event.target.value = "";
                       }}
                     />
-                    {endFrame.preview ? (
+                    {startFrame.preview ? (
                       <img
-                        src={endFrame.preview}
-                        alt="End frame preview"
+                        src={startFrame.preview}
+                        alt="Start frame preview"
                         className="h-32 w-full rounded-xl object-cover"
                       />
                     ) : (
                       <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                        Drag & drop <br /> last frame
+                        Drag & drop <br /> first frame
                       </div>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
                       <button
                         type="button"
                         className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                        onClick={() => endInputRef.current?.click()}
+                        onClick={() => startInputRef.current?.click()}
                       >
                         Browse
                       </button>
-                      {endFrame.uploading ? (
+                      {startFrame.uploading ? (
                         <span className="inline-flex items-center gap-1 text-sky-200">
                           <Spinner size="sm" /> Uploading…
                         </span>
-                      ) : endFrame.url ? (
+                      ) : startFrame.url ? (
                         <span className="text-emerald-300">Ready</span>
                       ) : null}
-                      {endFrame.name ? (
-                        <span className="truncate text-slate-500">{endFrame.name}</span>
+                      {startFrame.name ? (
+                        <span className="truncate text-slate-500">{startFrame.name}</span>
                       ) : null}
-                      {endFrame.url || endFrame.preview ? (
+                      {startFrame.url || startFrame.preview ? (
                         <button
                           type="button"
                           className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                          onClick={() => handleEndFrameSelect(null)}
+                          onClick={() => handleStartFrameSelect(null)}
                         >
                           Clear
                         </button>
@@ -894,12 +815,92 @@ export default function ControlsPane() {
                     </div>
                   </div>
                 </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : (
-        <>
+
+                {supportsEndFrame ? (
+                  <div className="flex-1 min-w-[160px] space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      End frame (optional)
+                    </label>
+                    <div
+                      className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
+                        isEndDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
+                      }`}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setIsEndDragActive(true);
+                      }}
+                      onDragLeave={(event) => {
+                        event.preventDefault();
+                        setIsEndDragActive(false);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setIsEndDragActive(true);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        setIsEndDragActive(false);
+                        void handleEndFrameDrop(event.dataTransfer);
+                      }}
+                    >
+                      <input
+                        ref={endInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                          const file = event.target.files?.[0] ?? null;
+                          void handleEndFrameSelect(file);
+                          event.target.value = "";
+                        }}
+                      />
+                      {endFrame.preview ? (
+                        <img
+                          src={endFrame.preview}
+                          alt="End frame preview"
+                          className="h-32 w-full rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
+                          Drag & drop <br /> last frame
+                        </div>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                        <button
+                          type="button"
+                          className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
+                          onClick={() => endInputRef.current?.click()}
+                        >
+                          Browse
+                        </button>
+                        {endFrame.uploading ? (
+                          <span className="inline-flex items-center gap-1 text-sky-200">
+                            <Spinner size="sm" /> Uploading…
+                          </span>
+                        ) : endFrame.url ? (
+                          <span className="text-emerald-300">Ready</span>
+                        ) : null}
+                        {endFrame.name ? (
+                          <span className="truncate text-slate-500">{endFrame.name}</span>
+                        ) : null}
+                        {endFrame.url || endFrame.preview ? (
+                          <button
+                            type="button"
+                            className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
+                            onClick={() => handleEndFrameSelect(null)}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -1071,25 +1072,6 @@ export default function ControlsPane() {
         />
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <button
-          type="submit"
-          disabled={busy || pendingUploads}
-          className="rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busy
-            ? "Generating…"
-            : pendingUploads
-              ? "Waiting on uploads…"
-              : "Generate"}
-        </button>
-        {pricingLabel ? (
-          <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-slate-300">
-            {pricingLabel}
-          </span>
-        ) : null}
-      </div>
-
       <div className="space-y-1">
         <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           Seed (optional)
@@ -1113,12 +1095,33 @@ export default function ControlsPane() {
             .filter(Boolean)}
         </div>
       ) : null}
+      </div>
 
-      {status ? (
-        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
-          {status}
+      <div className="sticky bottom-0 left-0 right-0 mt-auto space-y-2 border-t border-white/10 bg-slate-950/95 p-3 shadow-[0_-6px_25px_rgba(0,0,0,0.7)] backdrop-blur sm:p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button
+            type="submit"
+            disabled={busy || pendingUploads}
+            className="rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy
+              ? "Generating…"
+              : pendingUploads
+                ? "Waiting on uploads…"
+                : "Generate"}
+          </button>
+          {pricingLabel ? (
+            <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-slate-300">
+              {pricingLabel}
+            </span>
+          ) : null}
         </div>
-      ) : null}
+        {status ? (
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
+            {status}
+          </div>
+        ) : null}
+      </div>
     </form>
   );
 }
