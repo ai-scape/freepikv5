@@ -82,6 +82,8 @@ export default function ControlsPane() {
   const [size, setSize] = useState<ImageSizePreset>("square_hd");
   const [steps, setSteps] = useState("");
   const [temporal, setTemporal] = useState(true);
+  const [imageResolution, setImageResolution] = useState("1K");
+  const [maxImages, setMaxImages] = useState("1");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [isStartDragActive, setIsStartDragActive] = useState(false);
@@ -143,6 +145,13 @@ export default function ControlsPane() {
       previewRegistry.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedImage?.id !== "seedream-v4-edit") {
+      setImageResolution("1K");
+      setMaxImages("1");
+    }
+  }, [selectedImage?.id]);
 
   const parseSeed = () => {
     if (!seed.trim()) return undefined;
@@ -648,6 +657,15 @@ export default function ControlsPane() {
           throw new Error("Steps must be a number.");
         }
 
+        const parsedMaxImages =
+          selectedImage.id === "seedream-v4-edit"
+            ? (() => {
+                const value = Number(maxImages);
+                if (Number.isNaN(value)) return 1;
+                return Math.min(6, Math.max(1, Math.round(value)));
+              })()
+            : undefined;
+
         const imageJob: ImageJob = {
           prompt: prompt.trim(),
           imageUrls: imageReferenceUrls,
@@ -655,6 +673,9 @@ export default function ControlsPane() {
           seed: parseSeed(),
           temporal: selectedImage.id === "chrono-edit" ? temporal : undefined,
           steps: stepsValue,
+          imageResolution:
+            selectedImage.id === "seedream-v4-edit" ? imageResolution : undefined,
+          maxImages: parsedMaxImages,
         };
 
         endpoint = selectedImage.endpoint;
@@ -950,6 +971,40 @@ export default function ControlsPane() {
               />
               Temporal reasoning
             </label>
+          ) : null}
+
+          {selectedImage?.id === "seedream-v4-edit" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Image resolution
+                </label>
+                <select
+                  value={imageResolution}
+                  onChange={(event) => setImageResolution(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                >
+                  {["1K", "2K", "4K"].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Max images
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={maxImages}
+                  onChange={(event) => setMaxImages(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                />
+              </div>
+            </div>
           ) : null}
         </>
       )}

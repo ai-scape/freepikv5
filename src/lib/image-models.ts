@@ -18,6 +18,8 @@ export type ImageJob = {
   seed?: number;
   temporal?: boolean;
   steps?: number;
+  imageResolution?: string;
+  maxImages?: number;
 };
 
 export type ImageModelSpec = {
@@ -216,42 +218,99 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
   {
     id: "qwen-image-edit-plus",
     label: "Qwen Image Edit Plus (2509)",
-    endpoint: "fal-ai/qwen-image-edit-plus",
+    endpoint: "/api/v1/jobs/createTask",
+    provider: "kie",
+    taskConfig: {
+      statusEndpoint: "/api/v1/jobs/recordInfo",
+      statePath: "data.state",
+      successStates: ["success"],
+      failureStates: ["fail"],
+      responseDataPath: "data",
+      pollIntervalMs: 4000,
+    },
     mode: "edit",
     maxRefs: 4,
     mapInput: ({ prompt, imageUrls, size, seed, steps }) => ({
-      prompt,
-      image_urls: imageUrls.slice(0, 4),
-      image_size: size ?? "square_hd",
-      num_inference_steps: steps ?? 50,
-      guidance_scale: 4,
-      num_images: 1,
-      enable_safety_checker: true,
-      output_format: "png",
-      acceleration: "regular",
-      ...(seed !== undefined ? { seed } : {}),
+      model: "qwen/image-edit",
+      input: {
+        prompt,
+        image_url: imageUrls[0],
+        image_size: size ?? "square_hd",
+        num_inference_steps: steps ?? 30,
+        guidance_scale: 4,
+        sync_mode: false,
+        enable_safety_checker: true,
+        output_format: "png",
+        acceleration: "none",
+        ...(seed !== undefined ? { seed } : {}),
+      },
     }),
-    getUrls: (output) =>
-      ((output as { images?: Array<{ url?: string }> })?.images ?? [])
-        .map((image) => image?.url)
-        .filter(Boolean) as string[],
+    getUrls: (output) => {
+      const json = (output as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof json === "string") {
+        try {
+          const parsed = JSON.parse(json) as { resultUrls?: string[] };
+          return (parsed.resultUrls ?? []).filter(Boolean) as string[];
+        } catch {
+          // ignore
+        }
+      }
+      return (
+        ((output as { images?: Array<{ url?: string }> })?.images ?? [])
+          .map((image) => image?.url)
+          .filter(Boolean) as string[]
+      );
+    },
   },
   {
     id: "seedream-v4-edit",
     label: "Seedream v4 — Edit",
-    endpoint: "fal-ai/bytedance/seedream/v4/edit",
+    endpoint: "/api/v1/jobs/createTask",
+    provider: "kie",
+    taskConfig: {
+      statusEndpoint: "/api/v1/jobs/recordInfo",
+      statePath: "data.state",
+      successStates: ["success"],
+      failureStates: ["fail"],
+      responseDataPath: "data",
+      pollIntervalMs: 4000,
+    },
     mode: "edit",
-    maxRefs: 4,
-    mapInput: ({ prompt, imageUrls, size, seed }) => ({
-      prompt,
-      image_urls: imageUrls.slice(0, 4),
-      ...(size ? { image_size: size } : {}),
-      ...(seed !== undefined ? { seed } : {}),
-    }),
-    getUrls: (output) =>
-      ((output as { images?: Array<{ url?: string }> })?.images ?? [])
-        .map((image) => image?.url)
-        .filter(Boolean) as string[],
+    maxRefs: 10,
+    mapInput: ({ prompt, imageUrls, size, seed, imageResolution, maxImages }) => {
+      const clampedMax =
+        typeof maxImages === "number"
+          ? Math.min(6, Math.max(1, Math.round(maxImages)))
+          : undefined;
+
+      return {
+        model: "bytedance/seedream-v4-edit",
+        input: {
+          prompt,
+          image_urls: imageUrls.slice(0, 10),
+          ...(size ? { image_size: size } : {}),
+          ...(imageResolution ? { image_resolution: imageResolution } : {}),
+          ...(clampedMax !== undefined ? { max_images: clampedMax } : {}),
+          ...(seed !== undefined ? { seed } : {}),
+        },
+      };
+    },
+    getUrls: (output) => {
+      const resultJson = (output as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof resultJson === "string") {
+        try {
+          const parsed = JSON.parse(resultJson) as { resultUrls?: string[] };
+          return (parsed.resultUrls ?? []).filter(Boolean) as string[];
+        } catch {
+          // fall through
+        }
+      }
+      return (
+        ((output as { images?: Array<{ url?: string }> })?.images ?? [])
+          .map((image) => image?.url)
+          .filter(Boolean) as string[]
+      );
+    },
   },
   {
     id: "chrono-edit",
