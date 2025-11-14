@@ -1,0 +1,129 @@
+{
+  "models": [
+    {
+      "id": "kling-2.5-pro",
+      "endpoint": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": false,
+        "resolution": false,
+        "aspectRatio": false,
+        "fps": false
+      },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
+        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
+        "negative_prompt": { "type": "string", "default": "blur, distort, and low quality" },
+        "cfg_scale": { "type": "number", "default": 0.5 }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "kling-2.1-pro",
+      "endpoint": "fal-ai/kling-video/v2.1/pro/image-to-video",
+      "supports": {
+        "startFrame": true,
+        "endFrame": true,
+        "audio": false,
+        "resolution": false,
+        "aspectRatio": "unstable",
+        "fps": false
+      },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
+        "tail_image_url": { "type": "string", "required": false, "uiKey": "end_frame_url" },
+        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
+        "negative_prompt": { "type": "string", "default": "blur, distort, and low quality" },
+        "cfg_scale": { "type": "number", "default": 0.5 }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "veo-3.1-fast-flf2v",
+      "endpoint": "fal-ai/veo3.1/fast/first-last-frame-to-video",
+      "supports": {
+        "startFrame": true,
+        "endFrame": true,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "params": {
+        "first_frame_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
+        "last_frame_url": { "type": "string", "required": true, "uiKey": "end_frame_url" },
+        "prompt": { "type": "string", "required": true },
+        "duration": { "type": "enum", "values": ["8s"], "default": "8s" },
+        "aspect_ratio": { "type": "enum", "values": ["auto", "9:16", "16:9", "1:1"], "default": "auto" },
+        "resolution": { "type": "enum", "values": ["720p", "1080p"], "default": "720p" },
+        "generate_audio": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "ltx-2-pro",
+      "endpoint": "fal-ai/ltxv-2/image-to-video",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": true
+      },
+      "params": {
+        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
+        "prompt": { "type": "string", "required": true },
+        "duration": { "type": "enum", "values": [6, 8, 10], "default": 6 },
+        "resolution": { "type": "enum", "values": ["1080p", "1440p", "2160p"], "default": "1080p" },
+        "aspect_ratio": { "type": "enum", "values": ["16:9"], "default": "16:9" },
+        "fps": { "type": "enum", "values": [25, 50], "default": 25 },
+        "generate_audio": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "ltx-2-fast",
+      "endpoint": "fal-ai/ltxv-2/fast/image-to-video",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": true,
+        "resolution": true,
+        "aspectRatio": true,
+        "fps": true
+      },
+      "params": {
+        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
+        "prompt": { "type": "string", "required": true },
+        "duration": { "type": "enum", "values": [4, 6, 8], "default": 6 },
+        "resolution": { "type": "enum", "values": ["720p", "1080p", "1440p"], "default": "1080p" },
+        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "1:1"], "default": "16:9" },
+        "fps": { "type": "enum", "values": [25, 30], "default": 25 },
+        "generate_audio": { "type": "boolean", "default": true }
+      },
+      "output": { "videoPath": "video.url" }
+    },
+    {
+      "id": "hailuo-2.3-pro",
+      "endpoint": "fal-ai/minimax/hailuo-2.3/pro/image-to-video",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": "unspecified",
+        "resolution": "unspecified",
+        "aspectRatio": "unspecified",
+        "fps": "unspecified"
+      },
+      "params": {
+        "prompt": { "type": "string", "required": true },
+        "prompt_optimizer": { "type": "boolean", "default": true },
+        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" }
+      },
+      "output": { "videoPath": "video.url" }
+    }
+  ]
+}
