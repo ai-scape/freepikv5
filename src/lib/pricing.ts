@@ -41,6 +41,9 @@ const MODEL_PRICING: Record<string, PricingInfo> = {
   "hailuo-02-pro": { unit: "video", amount: 0.48, currency: "USD" },
   "wan-2.2-turbo": { unit: "video", amount: 0.1, currency: "USD" },
   "wan-2.5-i2v": { unit: "video", amount: 0.5, currency: "USD" },
+  "topaz-video-upscaler": { unit: "video", note: FALLBACK_NOTE },
+  "bytedance-video-upscaler": { unit: "video", note: FALLBACK_NOTE },
+  "flashvsr-video-upscaler": { unit: "video", note: FALLBACK_NOTE },
 };
 
 export function getModelPricing(modelId: string): PricingInfo | undefined {

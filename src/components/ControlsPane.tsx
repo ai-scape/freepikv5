@@ -18,6 +18,10 @@ import {
   type ImageJob,
   type ImageSizePreset,
 } from "../lib/image-models";
+import {
+  type UpscaleJob,
+  UPSCALE_MODELS,
+} from "../lib/upscale-models";
 import { getModelPricingLabel } from "../lib/pricing";
 import { uploadToFal } from "../lib/fal";
 import { extensionFromMime } from "../lib/mime";
@@ -34,6 +38,7 @@ import {
   type ModelProvider,
   type ProviderCallOptions,
 } from "../lib/providers";
+import { downloadBlob } from "../lib/providers/shared";
 
 function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
@@ -89,16 +94,45 @@ export default function ControlsPane() {
   const [isStartDragActive, setIsStartDragActive] = useState(false);
   const [isEndDragActive, setIsEndDragActive] = useState(false);
   const [isReferenceDragActive, setIsReferenceDragActive] = useState(false);
+  const [upscaleSource, setUpscaleSource] = useState<UploadSlot>({
+    uploading: false,
+  });
+  const [isUpscaleDragActive, setIsUpscaleDragActive] = useState(false);
+  const [upscaleFactor, setUpscaleFactor] = useState("2");
+  const [byteDanceResolution, setByteDanceResolution] = useState<
+    "1080p" | "2k" | "4k"
+  >("1080p");
+  const [byteDanceFps, setByteDanceFps] = useState<"30fps" | "60fps">("30fps");
+  const [flashAcceleration, setFlashAcceleration] = useState<
+    "regular" | "high" | "full"
+  >("regular");
+  const [flashColorFix, setFlashColorFix] = useState(true);
+  const [flashQuality, setFlashQuality] = useState("70");
+  const [flashPreserveAudio, setFlashPreserveAudio] = useState(false);
+  const [flashOutputFormat, setFlashOutputFormat] = useState<
+    "X264 (.mp4)" | "VP9 (.webm)" | "PRORES4444 (.mov)" | "GIF (.gif)"
+  >("X264 (.mp4)");
+  const [flashOutputQuality, setFlashOutputQuality] = useState<
+    "low" | "medium" | "high" | "maximum"
+  >("high");
+  const [flashOutputWriteMode, setFlashOutputWriteMode] = useState<
+    "fast" | "balanced" | "small"
+  >("balanced");
 
   const startInputRef = useRef<HTMLInputElement | null>(null);
   const endInputRef = useRef<HTMLInputElement | null>(null);
   const referenceInputRef = useRef<HTMLInputElement | null>(null);
+  const upscaleInputRef = useRef<HTMLInputElement | null>(null);
   const previewRegistry = useRef(new Set<string>());
   const [paramValues, setParamValues] = useState<
     Record<string, string | number | boolean | undefined>
   >({});
 
-  const modelKind = modelKey.startsWith("image:") ? "image" : "video";
+  const modelKind: "video" | "image" | "upscale" = modelKey.startsWith("image:")
+    ? "image"
+    : modelKey.startsWith("upscale:")
+      ? "upscale"
+      : "video";
 
   const selectedVideo = useMemo(() => {
     if (modelKind !== "video") return undefined;
@@ -112,11 +146,18 @@ export default function ControlsPane() {
     return IMAGE_MODELS.find((spec) => spec.id === id);
   }, [modelKey, modelKind]);
 
+  const selectedUpscale = useMemo(() => {
+    if (modelKind !== "upscale") return undefined;
+    const id = modelKey.replace("upscale:", "");
+    return UPSCALE_MODELS.find((spec) => spec.id === id);
+  }, [modelKey, modelKind]);
+
   const pricingLabel = useMemo(() => {
     if (selectedVideo) return getModelPricingLabel(selectedVideo.id);
     if (selectedImage) return getModelPricingLabel(selectedImage.id);
+    if (selectedUpscale) return getModelPricingLabel(selectedUpscale.id);
     return undefined;
-  }, [selectedVideo, selectedImage]);
+  }, [selectedVideo, selectedImage, selectedUpscale]);
 
   const supportsStartFrame = selectedVideo?.supports.startFrame !== false;
   const supportsEndFrame = selectedVideo?.supports.endFrame === true;
@@ -358,6 +399,45 @@ export default function ControlsPane() {
     modelKind === "video" && videoReferenceConfig
       ? uploadedReferenceUrls
       : [];
+  const isByteDanceUpscale = selectedUpscale?.id === "bytedance-video-upscaler";
+  const isFlashUpscale = selectedUpscale?.id === "flashvsr-video-upscaler";
+  const showUpscaleFactor = selectedUpscale
+    ? !isByteDanceUpscale
+    : true;
+
+  const handleUpscaleSourceSelect = useCallback(
+    async (file: File | null) => {
+      setUpscaleSource((previous) => {
+        if (previous.preview) {
+          releasePreview(previous.preview);
+        }
+        return { uploading: false };
+      });
+      if (!file) return;
+      const preview = registerPreview(URL.createObjectURL(file));
+      setUpscaleSource({
+        uploading: true,
+        preview,
+        name: file.name,
+      });
+      try {
+        const url = await uploadToFal(file);
+        setUpscaleSource((prev) => ({
+          ...prev,
+          uploading: false,
+          url,
+          error: null,
+        }));
+      } catch (error) {
+        setUpscaleSource((prev) => ({
+          ...prev,
+          uploading: false,
+          error: error instanceof Error ? error.message : "Upload failed.",
+        }));
+      }
+    },
+    [registerPreview, releasePreview]
+  );
 
   const handleStartFrameDrop = useCallback(
     async (dataTransfer: DataTransfer | null) => {
@@ -394,7 +474,8 @@ export default function ControlsPane() {
   const pendingUploads =
     startFrame.uploading ||
     endFrame.uploading ||
-    referenceUploads.some((entry) => entry.uploading);
+    referenceUploads.some((entry) => entry.uploading) ||
+    upscaleSource.uploading;
 
   useEffect(() => {
     if (!selectedVideo) {
@@ -558,7 +639,7 @@ export default function ControlsPane() {
       setStatus("Pick a project folder before generating.");
       return;
     }
-    if (!prompt.trim()) {
+    if (modelKind !== "upscale" && !prompt.trim()) {
       setStatus("Prompt is required.");
       return;
     }
@@ -686,6 +767,48 @@ export default function ControlsPane() {
         callOptions = selectedImage.taskConfig
           ? { taskConfig: selectedImage.taskConfig }
           : undefined;
+      } else if (modelKind === "upscale" && selectedUpscale) {
+        if (!upscaleSource.url) {
+          throw new Error("Upload a source video to upscale.");
+        }
+
+        const flashQualityNumber =
+          flashQuality.trim() === "" ? undefined : Number(flashQuality);
+        const normalizedQuality =
+          flashQualityNumber === undefined || Number.isNaN(flashQualityNumber)
+            ? undefined
+            : Math.min(100, Math.max(0, flashQualityNumber));
+
+        const job: UpscaleJob = {
+          videoUrl: upscaleSource.url,
+          ...(showUpscaleFactor ? { upscaleFactor } : {}),
+          ...(isByteDanceUpscale
+            ? {
+                targetResolution: byteDanceResolution,
+                targetFps: byteDanceFps,
+              }
+            : {}),
+          ...(isFlashUpscale
+            ? {
+                acceleration: flashAcceleration,
+                colorFix: flashColorFix,
+                quality: normalizedQuality,
+                preserveAudio: flashPreserveAudio,
+                outputFormat: flashOutputFormat,
+                outputQuality: flashOutputQuality,
+                outputWriteMode: flashOutputWriteMode,
+              }
+            : {}),
+        };
+
+        endpoint = selectedUpscale.endpoint;
+        payload = selectedUpscale.mapInput(job);
+        modelId = selectedUpscale.id;
+        category = "video";
+        provider = selectedUpscale.provider ?? "kie";
+        callOptions = selectedUpscale.taskConfig
+          ? { taskConfig: selectedUpscale.taskConfig }
+          : undefined;
       } else {
         throw new Error("Select a model to continue.");
       }
@@ -699,14 +822,36 @@ export default function ControlsPane() {
         );
       }
 
-      const result = await callModelEndpoint(provider, endpoint, payload, callOptions);
-      if (!result.blob) {
+      const result = await callModelEndpoint(
+        provider,
+        endpoint,
+        payload,
+        callOptions
+      );
+      const downloadedBlob = result.url
+        ? await downloadBlob(result.url)
+        : result.blob;
+      if (!downloadedBlob) {
         throw new Error("Provider response did not include a binary output.");
       }
 
-      const extension = extensionFromMime(
-        result.blob.type || (category === "image" ? "image/png" : "video/mp4")
+      let extension = extensionFromMime(
+        downloadedBlob.type ||
+          (category === "image" ? "image/png" : "video/mp4")
       );
+      if (extension === "bin" && result.url) {
+        try {
+          const url = new URL(result.url);
+          const pathname = url.pathname ?? "";
+          const parts = pathname.split(".");
+          const maybeExt = parts.length > 1 ? parts.pop() : undefined;
+          if (maybeExt && maybeExt.length <= 5) {
+            extension = maybeExt.toLowerCase();
+          }
+        } catch {
+          // Ignore URL parsing errors; retain default extension.
+        }
+      }
       const folder = category === "image" ? "images" : "videos";
       const relPath = `${folder}/${formatDateFolder(new Date())}/${buildFilename(
         modelId,
@@ -715,7 +860,7 @@ export default function ControlsPane() {
         seed.trim() ? seed.trim() : undefined
       )}`;
 
-      await writeBlob(project, relPath, result.blob);
+      await writeBlob(project, relPath, downloadedBlob);
       await refreshTree(relPath);
       setStatus(`Saved render to ${relPath}`);
     } catch (error) {
@@ -744,6 +889,15 @@ export default function ControlsPane() {
                 </option>
               ))}
             </optgroup>
+            {UPSCALE_MODELS.length ? (
+              <optgroup label="Upscalers">
+                {UPSCALE_MODELS.map((spec) => (
+                  <option key={spec.id} value={`upscale:${spec.id}`}>
+                    {spec.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
             <optgroup label="Image Pipelines">
               {IMAGE_MODELS.map((spec) => (
                 <option key={spec.id} value={`image:${spec.id}`}>
@@ -920,94 +1074,366 @@ export default function ControlsPane() {
               </div>
             ) : null}
           </div>
-        ) : (
+        ) : modelKind === "image" ? (
           <>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Size Preset
-              </label>
-              <select
-                value={size}
-                onChange={(event) =>
-                  setSize(event.target.value as ImageSizePreset)
-                }
-                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-              >
-                {[
-                  "square_hd",
-                  "square",
-                  "portrait_4_3",
-                  "portrait_16_9",
-                  "landscape_4_3",
-                  "landscape_16_9",
-                ].map((preset) => (
-                  <option key={preset} value={preset}>
-                    {preset.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Steps
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={steps}
-                onChange={(event) => setSteps(event.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-              />
-            </div>
-          </div>
-
-          {selectedImage?.id === "chrono-edit" ? (
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <input
-                type="checkbox"
-                checked={temporal}
-                onChange={(event) => setTemporal(event.target.checked)}
-              />
-              Temporal reasoning
-            </label>
-          ) : null}
-
-          {selectedImage?.id === "seedream-v4-edit" ? (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Image resolution
+                  Size Preset
                 </label>
                 <select
-                  value={imageResolution}
-                  onChange={(event) => setImageResolution(event.target.value)}
+                  value={size}
+                  onChange={(event) =>
+                    setSize(event.target.value as ImageSizePreset)
+                  }
                   className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                 >
-                  {["1K", "2K", "4K"].map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                  {[
+                    "square_hd",
+                    "square",
+                    "portrait_4_3",
+                    "portrait_16_9",
+                    "landscape_4_3",
+                    "landscape_16_9",
+                  ].map((preset) => (
+                    <option key={preset} value={preset}>
+                      {preset.replace(/_/g, " ")}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Max images
+                  Steps
                 </label>
                 <input
                   type="number"
                   min={1}
-                  max={6}
-                  value={maxImages}
-                  onChange={(event) => setMaxImages(event.target.value)}
+                  value={steps}
+                  onChange={(event) => setSteps(event.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                 />
               </div>
             </div>
-          ) : null}
-        </>
-      )}
+
+            {selectedImage?.id === "chrono-edit" ? (
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={temporal}
+                  onChange={(event) => setTemporal(event.target.checked)}
+                />
+                Temporal reasoning
+              </label>
+            ) : null}
+
+            {selectedImage?.id === "seedream-v4-edit" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Image resolution
+                  </label>
+                  <select
+                    value={imageResolution}
+                    onChange={(event) => setImageResolution(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    {["1K", "2K", "4K"].map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Max images
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={6}
+                    value={maxImages}
+                    onChange={(event) => setMaxImages(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  />
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Source video (required)
+              </label>
+              <div
+                className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${
+                  isUpscaleDragActive
+                    ? "border-sky-400 shadow-lg shadow-sky-500/20"
+                    : ""
+                }`}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setIsUpscaleDragActive(true);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  setIsUpscaleDragActive(false);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsUpscaleDragActive(true);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setIsUpscaleDragActive(false);
+                  void (async () => {
+                    const files = await extractFilesFromDataTransfer(
+                      event.dataTransfer
+                    );
+                    const file = files.find((candidate) =>
+                      candidate.type.startsWith("video/")
+                    );
+                    void handleUpscaleSourceSelect(file ?? null);
+                  })();
+                }}
+              >
+                <input
+                  ref={upscaleInputRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    const file = event.target.files?.[0] ?? null;
+                    void handleUpscaleSourceSelect(file);
+                    event.target.value = "";
+                  }}
+                />
+                {upscaleSource.preview ? (
+                  <video
+                    src={upscaleSource.preview}
+                    className="h-32 w-full rounded-xl border border-white/10 bg-black object-cover"
+                    controls
+                  />
+                ) : (
+                  <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
+                    Drag & drop a video
+                    <br />
+                    or click browse.
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
+                    onClick={() => upscaleInputRef.current?.click()}
+                  >
+                    Browse
+                  </button>
+                  {upscaleSource.uploading ? (
+                    <span className="inline-flex items-center gap-1 text-sky-200">
+                      <Spinner size="sm" /> Uploading…
+                    </span>
+                  ) : upscaleSource.url ? (
+                    <span className="text-emerald-300">Ready</span>
+                  ) : null}
+                  {upscaleSource.name ? (
+                    <span className="truncate text-slate-500">
+                      {upscaleSource.name}
+                    </span>
+                  ) : null}
+                  {upscaleSource.url || upscaleSource.preview ? (
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
+                      onClick={() => handleUpscaleSourceSelect(null)}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            {showUpscaleFactor ? (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Upscale factor
+                </label>
+                <select
+                  value={upscaleFactor}
+                  onChange={(event) => setUpscaleFactor(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                >
+                  <option value="1">1x</option>
+                  <option value="2">2x</option>
+                  <option value="4">4x</option>
+                </select>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Target resolution
+                  </label>
+                  <select
+                    value={byteDanceResolution}
+                    onChange={(event) =>
+                      setByteDanceResolution(
+                        event.target.value as "1080p" | "2k" | "4k"
+                      )
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    <option value="1080p">1080p</option>
+                    <option value="2k">2K</option>
+                    <option value="4k">4K</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Target FPS
+                  </label>
+                  <select
+                    value={byteDanceFps}
+                    onChange={(event) =>
+                      setByteDanceFps(event.target.value as "30fps" | "60fps")
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    <option value="30fps">30 fps</option>
+                    <option value="60fps">60 fps</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            {isFlashUpscale ? (
+              <div className="space-y-3 rounded-2xl border border-white/10 p-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Acceleration
+                    </label>
+                    <select
+                      value={flashAcceleration}
+                      onChange={(event) =>
+                        setFlashAcceleration(
+                          event.target.value as "regular" | "high" | "full"
+                        )
+                      }
+                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    >
+                      <option value="regular">Regular (best quality)</option>
+                      <option value="high">High</option>
+                      <option value="full">Full (fastest)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Quality (0-100)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={flashQuality}
+                      onChange={(event) => setFlashQuality(event.target.value)}
+                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Output format
+                    </label>
+                    <select
+                      value={flashOutputFormat}
+                      onChange={(event) =>
+                        setFlashOutputFormat(
+                          event.target.value as
+                            | "X264 (.mp4)"
+                            | "VP9 (.webm)"
+                            | "PRORES4444 (.mov)"
+                            | "GIF (.gif)"
+                        )
+                      }
+                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    >
+                      <option value="X264 (.mp4)">X264 (.mp4)</option>
+                      <option value="VP9 (.webm)">VP9 (.webm)</option>
+                      <option value="PRORES4444 (.mov)">PRORES4444 (.mov)</option>
+                      <option value="GIF (.gif)">GIF (.gif)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Output quality
+                    </label>
+                    <select
+                      value={flashOutputQuality}
+                      onChange={(event) =>
+                        setFlashOutputQuality(
+                          event.target.value as
+                            | "low"
+                            | "medium"
+                            | "high"
+                            | "maximum"
+                        )
+                      }
+                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="maximum">Maximum</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Output write mode
+                    </label>
+                    <select
+                      value={flashOutputWriteMode}
+                      onChange={(event) =>
+                        setFlashOutputWriteMode(
+                          event.target.value as "fast" | "balanced" | "small"
+                        )
+                      }
+                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    >
+                      <option value="balanced">Balanced</option>
+                      <option value="fast">Fast</option>
+                      <option value="small">Small</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col justify-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={flashColorFix}
+                        onChange={(event) => setFlashColorFix(event.target.checked)}
+                      />
+                      Color fix
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={flashPreserveAudio}
+                        onChange={(event) =>
+                          setFlashPreserveAudio(event.target.checked)
+                        }
+                      />
+                      Preserve audio
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
 
       {referenceLimit > 0 ? (
         <div className="space-y-1">
@@ -1115,29 +1541,33 @@ export default function ControlsPane() {
         </div>
       ) : null}
 
-      <div className="space-y-1">
-        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Prompt
-        </label>
-        <textarea
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          rows={6}
-          className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-        />
-      </div>
+      {modelKind !== "upscale" ? (
+        <>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Prompt
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              rows={6}
+              className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+            />
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Seed (optional)
-        </label>
-        <input
-          type="number"
-          value={seed}
-          onChange={(event) => setSeed(event.target.value)}
-          className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-        />
-      </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Seed (optional)
+            </label>
+            <input
+              type="number"
+              value={seed}
+              onChange={(event) => setSeed(event.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+            />
+          </div>
+        </>
+      ) : null}
 
       {modelKind === "video" && selectedVideo ? (
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
