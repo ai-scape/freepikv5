@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useCatalog } from "../state/catalog";
+import { useCatalog } from "../state/useCatalog";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { Spinner } from "./ui/Spinner";
 
@@ -17,7 +17,7 @@ export default function FileBrowser() {
       if (!project) return false;
       const matchesQuery = query
         ? entry.name.toLowerCase().includes(query) ||
-          entry.relPath.toLowerCase().includes(query)
+        entry.relPath.toLowerCase().includes(query)
         : true;
       const matchesExt =
         filterExt.length === 0 ||
@@ -37,8 +37,13 @@ export default function FileBrowser() {
 
   if (!project) {
     return (
-      <div className="rounded-lg border border-dashed border-white/20 p-4 text-sm text-slate-400">
-        Pick a project folder to browse its contents.
+      <div className="rounded-lg border border-dashed border-white/20 bg-gradient-to-br from-sky-500/5 to-indigo-500/5 p-6 text-sm">
+        <div className="mb-2 text-base font-semibold text-sky-200">
+          📂 No Project Selected
+        </div>
+        <div className="text-slate-300">
+          Click <strong>"Pick Folder"</strong> at the top to select where your generated assets will be saved.
+        </div>
       </div>
     );
   }
@@ -68,11 +73,10 @@ export default function FileBrowser() {
             key={ext}
             type="button"
             onClick={() => toggleFilter(ext)}
-            className={`rounded-full px-3 py-1 font-semibold ${
-              filterExt.includes(ext)
-                ? "bg-sky-500/30 text-white"
-                : "bg-white/10 text-slate-300"
-            }`}
+            className={`rounded-full px-3 py-1 font-semibold ${filterExt.includes(ext)
+              ? "bg-sky-500/30 text-white"
+              : "bg-white/10 text-slate-300"
+              }`}
           >
             .{ext}
           </button>
@@ -93,9 +97,22 @@ export default function FileBrowser() {
           <div className="flex h-full items-center justify-center">
             <Spinner />
           </div>
+        ) : filteredEntries.length === 0 && entries.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-8">
+            <div className="max-w-sm text-center">
+              <div className="mb-3 text-4xl">🎨</div>
+              <div className="mb-2 text-base font-semibold text-white">
+                No Files Yet
+              </div>
+              <div className="text-sm text-slate-300">
+                Generate your first image or video using the controls on the left. Your files will appear here automatically!
+              </div>
+            </div>
+          </div>
         ) : filteredEntries.length === 0 ? (
-          <div className="p-4 text-sm text-slate-400">
-            No files found. Generate an asset to populate the browser.
+          <div className="p-4 text-center text-sm text-slate-300">
+            <div className="mb-1">🔍 No files match your search</div>
+            <div className="text-xs text-slate-400">Try a different search term or clear your filters</div>
           </div>
         ) : (
           <ul>
@@ -111,9 +128,8 @@ export default function FileBrowser() {
                     }
                   }}
                   onClick={() => select(entry)}
-                  className={`flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm transition hover:bg-white/5 ${
-                    selected?.id === entry.id ? "bg-white/10" : ""
-                  }`}
+                  className={`flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm transition hover:bg-white/5 ${selected?.id === entry.id ? "bg-white/10" : ""
+                    }`}
                 >
                   <div>
                     <div className="font-semibold text-white">

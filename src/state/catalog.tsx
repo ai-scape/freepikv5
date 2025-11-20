@@ -1,38 +1,14 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { walk, type FileEntry } from "../fs/tree";
+import { CatalogContext, type CatalogContextValue } from "./CatalogContext";
 
-export type CatalogState = {
-  entries: FileEntry[];
-  filterExt: string[];
-  q: string;
-  selected?: FileEntry;
-  project?: FileSystemDirectoryHandle;
-};
-
-type CatalogActions = {
-  setProject(handle?: FileSystemDirectoryHandle | null): void;
-  refreshTree(preferredPath?: string): Promise<void>;
-  select(entry?: FileEntry): void;
-  setFilters(filters: string[]): void;
-  setQuery(value: string): void;
-};
-
-type CatalogContextValue = {
-  state: CatalogState & { loading: boolean };
-  actions: CatalogActions;
-};
-
-const CatalogContext = createContext<CatalogContextValue | undefined>(
-  undefined
-);
+export type { CatalogState } from "./CatalogContext";
 
 export function CatalogProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -116,12 +92,4 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       {children}
     </CatalogContext.Provider>
   );
-}
-
-export function useCatalog() {
-  const context = useContext(CatalogContext);
-  if (!context) {
-    throw new Error("useCatalog must be used within a CatalogProvider.");
-  }
-  return context;
 }

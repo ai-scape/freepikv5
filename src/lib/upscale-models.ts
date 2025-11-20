@@ -19,6 +19,7 @@ export type UpscaleModelSpec = {
   label: string;
   endpoint: string;
   provider?: ModelProvider;
+  pricing?: string;
   taskConfig?: TaskPollingConfig;
   mapInput(job: UpscaleJob): Record<string, unknown>;
 };

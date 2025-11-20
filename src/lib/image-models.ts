@@ -7,9 +7,12 @@ export type ImageSizePreset =
   | "square_hd"
   | "square"
   | "portrait_4_3"
+  | "portrait_3_2"
   | "portrait_16_9"
   | "landscape_4_3"
-  | "landscape_16_9";
+  | "landscape_3_2"
+  | "landscape_16_9"
+  | "landscape_21_9";
 
 export type ImageJob = {
   prompt: string;
@@ -20,6 +23,13 @@ export type ImageJob = {
   steps?: number;
   imageResolution?: string;
   maxImages?: number;
+  outputFormat?: string;
+  aspectRatio?: string;
+  enableTranslation?: boolean;
+  model?: string;
+  promptUpsampling?: boolean;
+  safetyTolerance?: number;
+  watermark?: string;
 };
 
 export type ImageModelSpec = {
@@ -27,6 +37,7 @@ export type ImageModelSpec = {
   label: string;
   endpoint: string;
   provider?: ModelProvider;
+  pricing?: string;
   mode: "edit" | "hybrid" | "text";
   maxRefs: number;
   taskConfig?: TaskPollingConfig;
@@ -45,12 +56,18 @@ function resolveAspectRatio(
         return "1:1";
       case "portrait_4_3":
         return "3:4";
+      case "portrait_3_2":
+        return "2:3";
       case "portrait_16_9":
         return "9:16";
       case "landscape_4_3":
         return "4:3";
+      case "landscape_3_2":
+        return "3:2";
       case "landscape_16_9":
         return "16:9";
+      case "landscape_21_9":
+        return "21:9";
       default:
         return undefined;
     }
@@ -71,16 +88,18 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     label: "Nano Banana — Edit",
     endpoint: "/api/v1/jobs/createTask",
     provider: "kie",
+    pricing: "$0.02/image",
     mode: "edit",
-    maxRefs: 4,
-    mapInput: ({ prompt, imageUrls, size }) => {
+    maxRefs: 10,
+    mapInput: ({ prompt, imageUrls, size, outputFormat }) => {
+      // Nano Banana uses aspect ratio strings directly, not preset names
       const aspectRatio = resolveAspectRatio(size);
       return {
         model: "google/nano-banana-edit",
         input: {
           prompt,
           image_urls: imageUrls.slice(0, 10),
-          output_format: "png",
+          output_format: outputFormat ?? "png",
           ...(aspectRatio ? { image_size: aspectRatio } : {}),
         },
       };
@@ -105,103 +124,11 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     },
   },
   {
-    id: "imagen-4-fast",
-    label: "Imagen 4 Fast — Text",
-    endpoint: "fal-ai/imagen4/preview/fast",
-    mode: "text",
-    maxRefs: 0,
-    mapInput: ({ prompt, size, seed, steps }) => {
-      const aspectRatio = resolveAspectRatio(size);
-      return {
-        prompt,
-        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
-        ...(seed !== undefined ? { seed } : {}),
-        ...(steps !== undefined ? { num_inference_steps: steps } : {}),
-        guidance_scale: 5,
-        num_images: 1,
-        output_format: "png",
-      };
-    },
-    getUrls: (output) =>
-      ((output as { images?: Array<{ url?: string }> })?.images ?? [])
-        .map((image) => image?.url)
-        .filter(Boolean) as string[],
-  },
-  {
-    id: "imagen-4",
-    label: "Imagen 4 — Text",
-    endpoint: "fal-ai/imagen4/preview",
-    mode: "text",
-    maxRefs: 0,
-    mapInput: ({ prompt, size, seed, steps }) => {
-      const aspectRatio = resolveAspectRatio(size);
-      return {
-        prompt,
-        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
-        ...(seed !== undefined ? { seed } : {}),
-        ...(steps !== undefined ? { num_inference_steps: steps } : {}),
-        guidance_scale: 6,
-        num_images: 1,
-        output_format: "png",
-      };
-    },
-    getUrls: (output) =>
-      ((output as { images?: Array<{ url?: string }> })?.images ?? [])
-        .map((image) => image?.url)
-        .filter(Boolean) as string[],
-  },
-  {
-    id: "qwen-image-edit-plus",
-    label: "Qwen Image Edit Plus (2509)",
-    endpoint: "/api/v1/jobs/createTask",
-    provider: "kie",
-    taskConfig: {
-      statusEndpoint: "/api/v1/jobs/recordInfo",
-      statePath: "data.state",
-      successStates: ["success"],
-      failureStates: ["fail"],
-      responseDataPath: "data",
-      pollIntervalMs: 4000,
-    },
-    mode: "edit",
-    maxRefs: 4,
-    mapInput: ({ prompt, imageUrls, size, seed, steps }) => ({
-      model: "qwen/image-edit",
-      input: {
-        prompt,
-        image_url: imageUrls[0],
-        image_size: size ?? "square_hd",
-        num_inference_steps: steps ?? 30,
-        guidance_scale: 4,
-        sync_mode: false,
-        enable_safety_checker: true,
-        output_format: "png",
-        acceleration: "none",
-        ...(seed !== undefined ? { seed } : {}),
-      },
-    }),
-    getUrls: (output) => {
-      const json = (output as { resultJson?: string } | undefined)?.resultJson;
-      if (typeof json === "string") {
-        try {
-          const parsed = JSON.parse(json) as { resultUrls?: string[] };
-          return (parsed.resultUrls ?? []).filter(Boolean) as string[];
-        } catch {
-          // ignore
-        }
-      }
-      return (
-        ((output as { images?: Array<{ url?: string }> })?.images ?? [])
-          .map((image) => image?.url)
-          .filter(Boolean) as string[]
-      );
-    },
-  },
-  {
     id: "seedream-v4-edit",
-    label: "Seedream v4 — Edit",
+    label: "Seedream V4 — Edit",
     endpoint: "/api/v1/jobs/createTask",
     provider: "kie",
+    pricing: "$0.0175/image",
     taskConfig: {
       statusEndpoint: "/api/v1/jobs/recordInfo",
       statePath: "data.state",
@@ -223,7 +150,8 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
         input: {
           prompt,
           image_urls: imageUrls.slice(0, 10),
-          ...(size ? { image_size: size } : {}),
+          // Seedream uses preset names directly (square, square_hd, portrait_4_3, etc.)
+          ...(size && typeof size === "string" ? { image_size: size } : {}),
           ...(imageResolution ? { image_resolution: imageResolution } : {}),
           ...(clampedMax !== undefined ? { max_images: clampedMax } : {}),
           ...(seed !== undefined ? { seed } : {}),
@@ -245,6 +173,60 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
           .map((image) => image?.url)
           .filter(Boolean) as string[]
       );
+    },
+  },
+  {
+    id: "flux-kontext-pro",
+    label: "Flux Kontext Pro — Text & Edit",
+    endpoint: "https://api.kie.ai/fluxkontext/v1/generate",
+    provider: "kie",
+    pricing: "See KIE docs",
+    mode: "hybrid",
+    maxRefs: 1,
+    mapInput: ({ prompt, imageUrls, aspectRatio, outputFormat, enableTranslation, promptUpsampling, safetyTolerance, watermark }) => {
+      return {
+        prompt,
+        ...(imageUrls.length > 0 ? { inputImage: imageUrls[0] } : {}),
+        aspectRatio: aspectRatio ?? "16:9",
+        outputFormat: outputFormat ?? "jpeg",
+        enableTranslation: enableTranslation ?? true,
+        model: "flux-kontext-pro",
+        ...(promptUpsampling !== undefined ? { promptUpsampling } : {}),
+        ...(safetyTolerance !== undefined ? { safetyTolerance } : {}),
+        ...(watermark ? { watermark } : {}),
+      };
+    },
+    getUrls: (output) => {
+      const url = (output as { url?: string })?.url;
+      if (typeof url === "string") return [url];
+      return [];
+    },
+  },
+  {
+    id: "flux-kontext-max",
+    label: "Flux Kontext Max — Text & Edit",
+    endpoint: "https://api.kie.ai/fluxkontext/v1/generate",
+    provider: "kie",
+    pricing: "See KIE docs",
+    mode: "hybrid",
+    maxRefs: 1,
+    mapInput: ({ prompt, imageUrls, aspectRatio, outputFormat, enableTranslation, promptUpsampling, safetyTolerance, watermark }) => {
+      return {
+        prompt,
+        ...(imageUrls.length > 0 ? { inputImage: imageUrls[0] } : {}),
+        aspectRatio: aspectRatio ?? "16:9",
+        outputFormat: outputFormat ?? "jpeg",
+        enableTranslation: enableTranslation ?? true,
+        model: "flux-kontext-max",
+        ...(promptUpsampling !== undefined ? { promptUpsampling } : {}),
+        ...(safetyTolerance !== undefined ? { safetyTolerance } : {}),
+        ...(watermark ? { watermark } : {}),
+      };
+    },
+    getUrls: (output) => {
+      const url = (output as { url?: string })?.url;
+      if (typeof url === "string") return [url];
+      return [];
     },
   },
 ];

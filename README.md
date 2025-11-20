@@ -1,72 +1,255 @@
-# Freepik Clone — AI Asset Studio
+# AI Asset Studio
 
-Freepik Clone is a Chrome-focused AI studio for triggering FAL and KIE pipelines and writing results directly to disk via the File System Access API. The UI uses a fixed three-column grid (controls → file browser → preview) so operators can tweak prompts, keep a live view of the project folder, and review finished renders without leaving the browser.
+> 🎨 A browser-based AI studio for generating images and videos using FAL and KIE AI models
 
-## Highlights
-- **Browser-only runtime:** No Node middleware or `/api/assets` endpoints. All persistence relies on Chrome’s File System Access API with an Origin Private File System (OPFS) fallback if folder access is denied.
-- **Three-column workflow:** Project bar (folder, storage status, permission controls), control pane (prompt, drag-and-drop uploads, model catalog, generation params), file browser (search + extension filters), and inline preview (image/video with metadata + download).
-- **Model-aware controls:** Every video pipeline automatically exposes the exact parameters defined in `models.json`/`models-extra.ts`; fields appear/disappear as you change models, so the UI always matches the upstream provider spec.
-- **Model catalog:** Video specs come from `src/lib/models.json` + `models-extra.ts`; image specs live in `src/lib/image-models.ts`. Pricing badges are loaded from `src/lib/pricing.ts` and displayed next to the Generate button.
-- **Direct disk writes:** Generated blobs are saved under `images/YYYY-MM-DD` or `videos/YYYY-MM-DD` inside the selected folder. Filenames combine the model id, sanitized prompt slug, optional seed, and a nanoid suffix.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Getting Started
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-3. Open the app in an up-to-date Chromium browser (Chrome/Edge). Safari/Firefox lack the File System Access APIs required for saving renders.
-4. Click **Pick Folder** in the project bar, select a workspace directory (or accept the OPFS fallback), and grant read/write permission.
-5. Add your provider keys to `.env` — always set `VITE_FAL_KEY=...`, and add `VITE_KIE_KEY=...` when using KIE pipelines. The client reads these from `import.meta.env`; there’s no UI prompt.
-6. Drag in a start frame, optional end frame or reference images, tweak the prompt/params, and run **Generate**. New files appear in the middle column immediately after the write succeeds.
+## ✨ What is this?
 
-## Storage & Permissions
-- Directory handles persist inside IndexedDB (`fs-handles/project`). On load, the app re-requests permission via `queryPermission`/`requestPermission`.
-- If the user cancels the picker or the API isn’t available, the app falls back to `navigator.storage.getDirectory()` (OPFS).
-- `navigator.storage.persist()` is invoked on startup; the badge in the project bar shows whether the browser granted durable storage.
+AI Asset Studio is a powerful yet simple tool that lets you generate AI-powered images and videos directly in your browser. No complicated setup, no servers to maintain - just open the app, pick a folder, and start creating!
 
-## Model Catalog Reference
+**Perfect for:**
+- 🎬 Video creators and editors
+- 🎨 Digital artists and designers  
+- 📸 Content creators
+- 🚀 Anyone who wants to explore AI generation
 
-### Video Pipelines
-- `kling-2.5-pro` and `kling-2.1-pro` — turbo I2V pipelines now routed through KIE Jobs API polling.
-- `kling-2.1-pro` — adds end-frame control for transitions.
-- `veo-3.1-quality-text`, `veo-3.1-quality-firstlast`, `veo-3.1-fast-text`, `veo-3.1-fast-firstlast`, `veo-3.1-fast-reference` — Veo 3.1 pipelines via KIE Jobs (text-only, first/last frames, and reference material modes).
-- `ltx-2-pro`, `ltx-2-fast` — Lightricks LTX variants with FPS / resolution knobs.
-- `hailuo-2.3-pro`, `hailuo-02-pro` — Minimax pipelines with prompt optimizers (both routed via KIE Jobs API).
-- `seedance-pro-fast`, `seedance-pro` — ByteDance Seedance endpoints.
-- `wan-2.2-turbo`, `wan-2.5-i2v` — Wán diffusion video suites.
+## 🚀 Getting Started in 3 Simple Steps
 
-### Image Pipelines
-- `flux-kontext-pro`, `nano-banana`, `nano-banana-edit`
-- `nano-banana` text mode now routes through KIE’s Jobs API (`/api/v1/jobs/createTask` + `recordInfo`) so the app polls for task completion before saving the blob locally.
-- `imagen-4`, `imagen-4-fast`
-- `qwen-image-edit-plus` — now runs through the KIE Jobs API (`qwen/image-edit`) so acceleration, guidance scale, steps, and safety toggles map 1:1 to the provider request.
-- `seedream-v4-edit` — ByteDance Seedream edit flow via KIE Jobs (`bytedance/seedream-v4-edit`) with size/resolution/max-image controls surfaced in the UI.
-- `chrono-edit`
+### 1. Install & Run
 
-Model specs live in:
-- `src/lib/models.json` — primary video definitions.
-- `src/lib/models-extra.ts` — adapter-driven video endpoints.
-- `src/lib/image-models.ts` — image specs + payload mappers.
-- `src/lib/pricing.ts` — badge labels for every model id.
+```bash
+# Install dependencies
+npm install
 
-## Deployment Guidelines
-- `npm run build` outputs a static bundle in `dist/`. Deploy to any static host (Vercel, Netlify, Cloudflare Pages, etc.).
-- Serve over HTTPS so the File System Access API and FAL requests stay available.
-- Set a CSP that allows `https://fal.run` and `https://api.kie.ai` (plus any regional upload hosts you require) inside `connect-src`.
+# Start the development server
+npm run dev
+```
 
-## Project Structure
-- `src/app/page.tsx` — grid layout shell (ProjectBar + ControlsPane + FileBrowser + PreviewPane).
-- `src/components/ProjectBar.tsx` — folder persistence, permission refresh, storage badge.
-- `src/components/ControlsPane.tsx` — prompt/model controls, drag-and-drop uploads, dynamic parameter builder, and provider-aware `callModelEndpoint` orchestration.
-- `src/components/FileBrowser.tsx` — live directory tree with search/filters.
-- `src/components/PreviewPane.tsx` — inline preview + metadata.
-- `src/fs/*` — File System Access helpers (`dir`, `write`, `tree`, `preview`).
-- `src/lib/providers/` — shared provider router, helpers, and the KIE client (fal + kie). `src/lib/fal.ts` still houses the FAL fetch client plus `uploadToFal`.
-- `src/lib/filename.ts`, `src/lib/mime.ts`, `src/lib/storage-mode.ts` — utility helpers.
-- `src/state/catalog.tsx` — React context that tracks folder handle, file entries, filters, and selection.
+Open your browser to `http://localhost:5173`
 
-Further automation tips live in [`docs/AGENT_GUIDE.md`](docs/AGENT_GUIDE.md).
+**Important:** Use Chrome, Edge, or another Chromium-based browser. Safari and Firefox don't support the file system features we need.
+
+### 2. Set Up Your API Keys
+
+Create a file called `.env.local` in the project root:
+
+```env
+VITE_FAL_KEY=your_fal_api_key_here
+VITE_KIE_KEY=your_kie_api_key_here
+```
+
+**Get your keys:**
+- **FAL.ai:** Sign up at [fal.ai](https://fal.ai) → Dashboard → API Keys
+- **KIE.ai:** Sign up at [kie.ai](https://kie.ai) → Account Settings → Generate API Key
+
+### 3. Pick a Project Folder
+
+1. Click **"Pick Folder"** in the top bar
+2. Select where you want to save your generated files
+3. Grant permission when prompted
+
+That's it! You're ready to create. 🎉
+
+## 📖 How to Use
+
+### Quick Video Generation
+
+1. Select a video model (try "kling-2.5-pro")
+2. Upload a start frame image (drag & drop or click browse)
+3. Write what you want to happen: "A butterfly lands on a flower"
+4. Click **Generate**
+5. Wait 30-60 seconds
+6. Your video appears in the file browser!
+
+### Quick Image Generation
+
+1. Select an image model (try "flux-kontext-pro")
+2. Write a detailed description: "A photorealistic portrait of a cat wearing a wizard hat"
+3. Click **Generate**
+4. Your image is ready in seconds!
+
+For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
+
+## 🎯 Key Features
+
+### ✅ **Zero Setup** - No backend, no databases, no complicated configuration
+### ✅ **Direct to Disk** - Files save straight to your computer
+### ✅ **20+ AI Models** - Video, image, and upscaling models included
+### ✅ **Smart Controls** - UI automatically adapts to each model's parameters
+### ✅ **Built-in Browser** - Browse, preview, and search your generated files
+### ✅ **Persistent** - Your project folder is remembered between sessions
+
+## 🎬 Available Models
+
+### Video Generation
+- **Kling 2.5 Pro** - High-quality video generation  
+- **Veo 3.1** - Google's video model (multiple variants)
+- **LTX-2** - Fast Lightricks video model
+- **Hailuo** - Minimax's creative video generator
+- **Wan 2.5** - Wán diffusion video
+
+### Image Generation
+- **Flux Kontext Pro** - Professional-grade images
+- **Imagen 4** - Google's image model  
+- **Nano Banana** - Creative artistic images
+- **Seedream V4** - ByteDance image editing
+- **Qwen Image Edit** - Advanced image editing
+
+### Video Upscaling
+- **FlashVSR** - High-quality video upscaling
+- **ByteDance Upscaler** - Professional video enhancement
+
+See the full model catalog in the [Technical Docs](#project-structure) section below.
+
+## 💡 Tips for Great Results
+
+### ✍️ Writing Prompts
+
+**Good prompts are specific:**
+- ❌ "A cool video"
+- ✅ "A red sports car driving through a neon-lit city at night, rain on windshield, cinematic"
+
+**Include these details:**
+- What's happening (action/subject)
+- Style (cinematic, photorealistic, artistic)
+- Lighting (golden hour, dramatic, soft)  
+- Camera movement (zoom in, pan left, static)
+- Mood (peaceful, energetic, mysterious)
+
+### 🎥 Video Best Practices
+
+- Use high-quality start frames (at least 1024x1024)
+- Keep prompts focused on one main action  
+- For transitions, use the end frame feature
+- Some models work better with specific aspect ratios
+
+### 🖼️ Image Best Practices
+
+- Be descriptive but concise (50-200 characters works well)
+- Use artistic terms: "oil painting", "digital art", "3D render"
+- Specify composition: "close-up", "wide angle", "bird's eye view"  
+- Try different size presets for various uses
+
+## 🔧 Advanced Features
+
+### Reference Images/Videos
+
+Many models support reference materials:
+- **Style Transfer** - Upload an image to match its style
+- **Character Consistency** - Keep characters looking the same across generations
+- **Scene References** - Provide multiple reference images for complex scenes
+
+### Fine-Tuning Parameters
+
+Each model exposes different controls:
+- **FPS** - Frames per second for videos
+- **Resolution** - Output quality (1080p, 2K, 4K)
+- **Steps** - Generation quality vs speed trade-off
+- **Seed** - Reproducible generations (save seeds you like!)
+
+### Batch Organization
+
+Files are automatically organized:
+```
+your-project-folder/
+├── images/
+│   ├── 2025-11-20/
+│   └── 2025-11-21/
+└── videos/
+    ├── 2025-11-20/
+    └── 2025-11-21/
+```
+
+## 🛟 Troubleshooting
+
+### Can't pick a folder?
+- ✅ Use Chrome or Edge (Chromium browsers)
+- ❌ Safari and Firefox don't support File System Access API
+
+### API key errors?
+- Check `.env.local` file exists and keys are correct  
+- Restart dev server after changing `.env.local`
+- Ensure keys start with `VITE_`
+
+### Generation failing?
+- Check browser console (F12) for errors
+- Verify your API key has available credits
+- Try a different model or simpler prompt
+- Check file sizes (max ~20MB for uploads)
+
+### Slow generations?
+- High-quality models take 30-90 seconds
+- Check your internet connection
+- Some models have queue times during peak hours
+
+For more help, see the [User Guide](docs/USER_GUIDE.md).
+
+## 🏗️ Project Structure
+
+```
+src/
+├── app/               # Main application shell
+├── components/        # UI components
+│   ├── ControlsPane.tsx    # Model selection & generation controls
+│   ├── FileBrowser.tsx     # File list & search
+│   ├── PreviewPane.tsx     # File preview
+│   └── ProjectBar.tsx      # Folder picker & permissions  
+├── fs/                # File system utilities
+├── lib/               # Core logic
+│   ├── models.json         # Video model catalog
+│   ├── image-models.ts     # Image model catalog
+│   ├── pricing.ts          # Model pricing info
+│   └── providers/          # API integrations (FAL, KIE)
+└── state/             # React context for app state
+```
+
+## 🚢 Deployment
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Deploy the `dist/` folder to:
+- Vercel
+- Netlify  
+- Cloudflare Pages
+- Any static hosting service
+
+**Requirements:**
+- Must be served over HTTPS
+- Set CSP to allow `https://fal.run` and `https://api.kie.ai`
+
+## 📚 Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** - Step-by-step instructions for users
+- **[Agent Guide](docs/AGENT_GUIDE.md)** - Advanced automation tips
+
+## 🤝 Contributing
+
+This is a specialized tool built for production use. If you find bugs or have suggestions:
+1. Check existing issues
+2. Open a detailed bug report with steps to reproduce
+3. Include browser version and console errors
+
+## 📄 License
+
+MIT License - feel free to use this for your own projects!
+
+## ⚡ Technical Notes
+
+- **No Server Required** - 100% client-side, no backend needed
+- **File System Access API** - Direct disk writes without downloads folder
+- **IndexedDB** - Persist folder handles between sessions  
+- **OPFS Fallback** - Origin Private File System when folder access denied
+- **React 19** - Latest React with TypeScript
+- **Vite** - Lightning-fast development and builds
+- **TailwindCSS** - Utility-first responsive styling
+
+---
+
+**Built with ❤️ for creators**
+
+Need help? Check the [User Guide](docs/USER_GUIDE.md) or open an issue!

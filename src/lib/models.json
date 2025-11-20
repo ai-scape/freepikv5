@@ -2,7 +2,10 @@
   "models": [
     {
       "id": "kling-2.5-pro",
-      "endpoint": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
+      "label": "Kling 2.5 Turbo Pro",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "pricing": "$0.21 (5s), $0.42 (10s)",
       "supports": {
         "startFrame": true,
         "endFrame": false,
@@ -11,145 +14,565 @@
         "aspectRatio": false,
         "fps": false
       },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
-        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
-        "negative_prompt": { "type": "string", "default": "blur, distort, and low quality" },
-        "cfg_scale": { "type": "number", "default": 0.5 }
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/jobs/recordInfo",
+        "statePath": "data.state",
+        "successStates": [
+          "success"
+        ],
+        "failureStates": [
+          "fail"
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 4000
       },
-      "output": { "videoPath": "video.url" }
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "duration": {
+          "type": "enum",
+          "values": [
+            "5",
+            "10"
+          ],
+          "default": "5"
+        },
+        "negative_prompt": {
+          "type": "string",
+          "default": "blur, distort, and low quality",
+          "hidden": true
+        },
+        "cfg_scale": {
+          "type": "number",
+          "default": 0.5
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
+    },
+    {
+      "id": "hailuo-2.3-pro",
+      "label": "Hailuo 2.3 Pro",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "pricing": "$0.22 (6s 768P), $0.45 (10s 768P), $0.39 (6s 1080P)",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": false,
+        "resolution": true,
+        "aspectRatio": false,
+        "fps": false
+      },
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/jobs/recordInfo",
+        "statePath": "data.state",
+        "successStates": [
+          "success"
+        ],
+        "failureStates": [
+          "fail"
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 4000
+      },
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "duration": {
+          "type": "enum",
+          "values": [
+            "6",
+            "10"
+          ],
+          "default": "6"
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "768P",
+            "1080P"
+          ],
+          "default": "768P"
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
+    },
+    {
+      "id": "wan-2.5-i2v",
+      "label": "Wan 2.5 (I2V)",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "pricing": "$0.06/sec (720p), $0.10/sec (1080p)",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": false,
+        "resolution": true,
+        "aspectRatio": false,
+        "fps": false
+      },
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/jobs/recordInfo",
+        "statePath": "data.state",
+        "successStates": [
+          "success"
+        ],
+        "failureStates": [
+          "fail"
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 4000
+      },
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "duration": {
+          "type": "enum",
+          "values": [
+            "5",
+            "10"
+          ],
+          "default": "5"
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "720p",
+            "1080p"
+          ],
+          "default": "1080p"
+        },
+        "negative_prompt": {
+          "type": "string",
+          "hidden": true
+        },
+        "enable_prompt_expansion": {
+          "type": "boolean",
+          "default": true
+        },
+        "seed": {
+          "type": "number",
+          "hidden": true
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
     },
     {
       "id": "kling-2.1-pro",
-      "endpoint": "fal-ai/kling-video/v2.1/pro/image-to-video",
+      "label": "Kling 2.1 Pro",
+      "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "pricing": "$0.25 (5s), $0.50 (10s)",
       "supports": {
         "startFrame": true,
         "endFrame": true,
         "audio": false,
         "resolution": false,
-        "aspectRatio": "unstable",
+        "aspectRatio": false,
         "fps": false
       },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
-        "tail_image_url": { "type": "string", "required": false, "uiKey": "end_frame_url" },
-        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
-        "negative_prompt": { "type": "string", "default": "blur, distort, and low quality" },
-        "cfg_scale": { "type": "number", "default": 0.5 }
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/jobs/recordInfo",
+        "statePath": "data.state",
+        "successStates": [
+          "success"
+        ],
+        "failureStates": [
+          "fail"
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 4000
       },
-      "output": { "videoPath": "video.url" }
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "tail_image_url": {
+          "type": "string",
+          "required": false,
+          "uiKey": "end_frame_url"
+        },
+        "duration": {
+          "type": "enum",
+          "values": [
+            "5",
+            "10"
+          ],
+          "default": "5"
+        },
+        "negative_prompt": {
+          "type": "string",
+          "default": "blur, distort, and low quality",
+          "hidden": true
+        },
+        "cfg_scale": {
+          "type": "number",
+          "default": 0.5
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
     },
     {
-      "id": "veo-3.1-fast-text",
-      "label": "Veo 3.1 Fast — Text",
+      "id": "wan-2.2-turbo",
+      "label": "Wan 2.2 Turbo (I2V)",
       "endpoint": "/api/v1/jobs/createTask",
       "provider": "kie",
+      "pricing": "$0.04/sec (480p), $0.06/sec (580p), $0.08/sec (720p)",
       "supports": {
-        "startFrame": false,
+        "startFrame": true,
         "endFrame": false,
-        "audio": true,
+        "audio": false,
         "resolution": true,
         "aspectRatio": true,
         "fps": false
       },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
-        "seed": { "type": "number" },
-        "enable_translation": { "type": "boolean", "default": true },
-        "enable_prompt_expansion": { "type": "boolean", "default": true }
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/jobs/recordInfo",
+        "statePath": "data.state",
+        "successStates": [
+          "success"
+        ],
+        "failureStates": [
+          "fail"
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 4000
       },
-      "output": { "videoPath": "video.url" }
+      "params": {
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "480p",
+            "580p",
+            "720p"
+          ],
+          "default": "720p"
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "auto",
+            "16:9",
+            "9:16",
+            "1:1"
+          ],
+          "default": "auto"
+        },
+        "enable_prompt_expansion": {
+          "type": "boolean",
+          "default": false
+        },
+        "seed": {
+          "type": "number",
+          "hidden": true
+        },
+        "acceleration": {
+          "type": "enum",
+          "values": [
+            "none",
+            "regular"
+          ],
+          "default": "none"
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
     },
     {
-      "id": "veo-3.1-fast-firstlast",
-      "label": "Veo 3.1 Fast — First & Last",
+      "id": "seedance-pro",
+      "label": "Seedance V1 Pro",
       "endpoint": "/api/v1/jobs/createTask",
+      "provider": "kie",
+      "pricing": "$0.014/sec (480p), $0.030/sec (720p), $0.070/sec (1080p)",
+      "supports": {
+        "startFrame": true,
+        "endFrame": false,
+        "audio": false,
+        "resolution": true,
+        "aspectRatio": false,
+        "fps": false
+      },
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/jobs/recordInfo",
+        "statePath": "data.state",
+        "successStates": [
+          "success"
+        ],
+        "failureStates": [
+          "fail"
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 4000
+      },
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "480p",
+            "720p",
+            "1080p"
+          ],
+          "default": "720p"
+        },
+        "duration": {
+          "type": "enum",
+          "values": [
+            "5",
+            "10"
+          ],
+          "default": "5"
+        },
+        "camera_fixed": {
+          "type": "boolean",
+          "default": false
+        },
+        "seed": {
+          "type": "number",
+          "default": -1,
+          "hidden": true
+        },
+        "enable_safety_checker": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
+    },
+    {
+      "id": "veo-3.1-fast",
+      "label": "Veo 3.1 Fast",
+      "endpoint": "https://api.kie.ai/veo3/v1/generate",
+      "provider": "kie",
+      "supports": {
+        "startFrame": false,
+        "endFrame": false,
+        "audio": false,
+        "resolution": false,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "model": {
+          "type": "enum",
+          "values": [
+            "veo3_fast"
+          ],
+          "default": "veo3_fast",
+          "hidden": true
+        },
+        "generationType": {
+          "type": "enum",
+          "values": [
+            "TEXT_2_VIDEO"
+          ],
+          "default": "TEXT_2_VIDEO",
+          "hidden": true
+        },
+        "aspectRatio": {
+          "type": "enum",
+          "values": [
+            "16:9",
+            "9:16",
+            "Auto"
+          ],
+          "default": "16:9"
+        },
+        "seeds": {
+          "type": "number"
+        },
+        "enableTranslation": {
+          "type": "boolean",
+          "default": true
+        },
+        "watermark": {
+          "type": "string"
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
+    },
+    {
+      "id": "veo-3.1-quality",
+      "label": "Veo 3.1 Quality",
+      "endpoint": "https://api.kie.ai/veo3/v1/generate",
+      "provider": "kie",
+      "supports": {
+        "startFrame": false,
+        "endFrame": false,
+        "audio": false,
+        "resolution": false,
+        "aspectRatio": true,
+        "fps": false
+      },
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "model": {
+          "type": "enum",
+          "values": [
+            "veo3"
+          ],
+          "default": "veo3",
+          "hidden": true
+        },
+        "generationType": {
+          "type": "enum",
+          "values": [
+            "TEXT_2_VIDEO"
+          ],
+          "default": "TEXT_2_VIDEO",
+          "hidden": true
+        },
+        "aspectRatio": {
+          "type": "enum",
+          "values": [
+            "16:9",
+            "9:16",
+            "Auto"
+          ],
+          "default": "16:9"
+        },
+        "seeds": {
+          "type": "number"
+        },
+        "enableTranslation": {
+          "type": "boolean",
+          "default": true
+        },
+        "watermark": {
+          "type": "string"
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
+    },
+    {
+      "id": "veo-3.1-fast-i2v",
+      "label": "Veo 3.1 Fast (I2V)",
+      "endpoint": "https://api.kie.ai/veo3/v1/generate",
       "provider": "kie",
       "supports": {
         "startFrame": true,
         "endFrame": true,
-        "audio": true,
-        "resolution": true,
+        "audio": false,
+        "resolution": false,
         "aspectRatio": true,
         "fps": false
       },
       "params": {
-        "prompt": { "type": "string", "required": true },
-        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
-        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
-        "seed": { "type": "number" },
-        "enable_translation": { "type": "boolean", "default": true },
-        "enable_prompt_expansion": { "type": "boolean", "default": true }
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "imageUrls": {
+          "type": "string",
+          "required": false,
+          "uiKey": "start_frame_url",
+          "hidden": true
+        },
+        "model": {
+          "type": "enum",
+          "values": [
+            "veo3_fast"
+          ],
+          "default": "veo3_fast",
+          "hidden": true
+        },
+        "generationType": {
+          "type": "enum",
+          "values": [
+            "FIRST_AND_LAST_FRAMES_2_VIDEO"
+          ],
+          "default": "FIRST_AND_LAST_FRAMES_2_VIDEO",
+          "hidden": true
+        },
+        "aspectRatio": {
+          "type": "enum",
+          "values": [
+            "16:9",
+            "9:16",
+            "Auto"
+          ],
+          "default": "16:9"
+        },
+        "seeds": {
+          "type": "number"
+        },
+        "enableTranslation": {
+          "type": "boolean",
+          "default": true
+        },
+        "watermark": {
+          "type": "string"
+        }
       },
-      "output": { "videoPath": "video.url" }
-    },
-    {
-      "id": "veo-3.1-fast-reference",
-      "label": "Veo 3.1 Fast — Reference",
-      "endpoint": "/api/v1/jobs/createTask",
-      "provider": "kie",
-      "supports": {
-        "startFrame": false,
-        "endFrame": false,
-        "audio": true,
-        "resolution": true,
-        "aspectRatio": true,
-        "fps": false
-      },
-      "referenceImages": { "min": 1, "max": 3 },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "aspect_ratio": { "type": "enum", "values": ["16:9"], "default": "16:9" },
-        "seed": { "type": "number" },
-        "enable_translation": { "type": "boolean", "default": true },
-        "enable_prompt_expansion": { "type": "boolean", "default": true }
-      },
-      "output": { "videoPath": "video.url" }
-    },
-    {
-      "id": "ltx-2-pro",
-      "endpoint": "fal-ai/ltxv-2/image-to-video",
-      "supports": {
-        "startFrame": true,
-        "endFrame": false,
-        "audio": true,
-        "resolution": true,
-        "aspectRatio": true,
-        "fps": true
-      },
-      "params": {
-        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
-        "prompt": { "type": "string", "required": true },
-        "duration": { "type": "enum", "values": [6, 8, 10], "default": 6 },
-        "resolution": { "type": "enum", "values": ["1080p", "1440p", "2160p"], "default": "1080p" },
-        "aspect_ratio": { "type": "enum", "values": ["16:9"], "default": "16:9" },
-        "fps": { "type": "enum", "values": [25, 50], "default": 25 },
-        "generate_audio": { "type": "boolean", "default": true }
-      },
-      "output": { "videoPath": "video.url" }
-    },
-    {
-      "id": "hailuo-2.3-pro",
-      "endpoint": "fal-ai/minimax/hailuo-2.3/pro/image-to-video",
-      "supports": {
-        "startFrame": true,
-        "endFrame": false,
-        "audio": "unspecified",
-        "resolution": true,
-        "aspectRatio": "unspecified",
-        "fps": "unspecified"
-      },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "prompt_optimizer": { "type": "boolean", "default": true },
-        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
-        "duration": { "type": "enum", "values": ["6", "10"], "default": "6" },
-        "resolution": { "type": "enum", "values": ["768P", "1080P"], "default": "768P" }
-      },
-      "output": { "videoPath": "video.url" }
+      "output": {
+        "videoPath": "video.url"
+      }
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getObjectURL, revokeURL } from "../fs/preview";
-import { useCatalog } from "../state/catalog";
+import { useCatalog } from "../state/useCatalog";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 
 function formatBytes(size: number) {
@@ -77,24 +77,48 @@ export default function PreviewPane() {
 
   if (!project) {
     return (
-      <div className="rounded-lg border border-dashed border-white/20 p-4 text-sm text-slate-400">
-        Pick a project folder to preview assets.
+      <div className="flex h-full items-center justify-center">
+        <div className="max-w-xs rounded-lg border border-dashed border-white/20 bg-gradient-to-br from-sky-500/5 to-indigo-500/5 p-6 text-center text-sm">
+          <div className="mb-3 text-4xl">👁️</div>
+          <div className="mb-2 font-semibold text-sky-200">
+            Preview Panel
+          </div>
+          <div className="text-slate-300">
+            Select a project folder first, then click any file to preview it here.
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!selected) {
     return (
-      <div className="rounded-lg border border-white/10 p-4 text-sm text-slate-400">
-        Select a file from the browser to preview it here.
+      <div className="flex h-full items-center justify-center">
+        <div className="max-w-xs rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm">
+          <div className="mb-3 text-4xl">👈</div>
+          <div className="mb-2 font-semibold text-white">
+            No File Selected
+          </div>
+          <div className="text-slate-300">
+            Click on any image or video from the file browser to see a live preview here.
+          </div>
+        </div>
       </div>
     );
   }
 
   if (selected.kind === "dir") {
     return (
-      <div className="rounded-lg border border-white/10 p-4 text-sm text-slate-400">
-        "{selected.name}" is a directory. Select a file to preview its contents.
+      <div className="flex h-full items-center justify-center">
+        <div className="max-w-xs rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm">
+          <div className="mb-3 text-4xl">📁</div>
+          <div className="mb-2 font-semibold text-white">
+            Directory Selected
+          </div>
+          <div className="text-slate-300">
+            "{selected.name}" is a folder. Select a file instead to view its contents.
+          </div>
+        </div>
       </div>
     );
   }

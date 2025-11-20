@@ -5,7 +5,8 @@ import {
   pickProjectDir,
   saveHandle,
 } from "../fs/dir";
-import { useCatalog } from "../state/catalog";
+import { useCatalog } from "../state/useCatalog";
+import { Tooltip, InfoIcon } from "./ui/Tooltip";
 
 export default function ProjectBar() {
   const {
@@ -24,7 +25,7 @@ export default function ProjectBar() {
       const granted = await ensureRW(saved);
       if (granted && !cancelled) {
         setProject(saved);
-        setStatus("Restored project folder.");
+        setStatus("Restored previous project folder.");
       }
     })();
     return () => {
@@ -61,16 +62,20 @@ export default function ProjectBar() {
       const handle = await pickProjectDir();
       const granted = await ensureRW(handle);
       if (!granted) {
-        setStatus("Permission denied for selected folder.");
+        setStatus("❌ Permission denied. Please allow folder access to continue.");
         return;
       }
       await saveHandle(handle);
       setProject(handle);
-      setStatus(`Connected to ${handle.name || "OPFS workspace"}.`);
+      setStatus(`✅ Connected to ${handle.name || "OPFS workspace"}. You can now generate assets!`);
     } catch (error) {
-      setStatus(
-        error instanceof Error ? error.message : "Unable to pick project folder."
-      );
+      if (error instanceof Error && error.name === "AbortError") {
+        setStatus("Folder selection cancelled.");
+      } else {
+        setStatus(
+          error instanceof Error ? `❌ ${error.message}` : "❌ Unable to select folder. Please try again."
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -78,19 +83,19 @@ export default function ProjectBar() {
 
   const handleReRequest = async () => {
     if (!project) {
-      setStatus("Pick a project folder first.");
+      setStatus("💡 Pick a project folder first using the 'Pick Folder' button.");
       return;
     }
     try {
       const granted = await ensureRW(project);
       setStatus(
-        granted ? "Permission refreshed." : "Permission request was denied."
+        granted ? "✅ Permission successfully refreshed!" : "❌ Permission request was denied. Please try again."
       );
     } catch (error) {
       setStatus(
         error instanceof Error
-          ? error.message
-          : "Unable to refresh permissions."
+          ? `❌ ${error.message}`
+          : "❌ Unable to refresh permissions."
       );
     }
   };
@@ -118,35 +123,50 @@ export default function ProjectBar() {
     <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/70 backdrop-blur-lg">
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
         <div className="flex flex-col">
-          <span className="text-xs uppercase tracking-wide text-slate-400">
-            Project Folder
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-slate-400">
+              Project Folder
+            </span>
+            <Tooltip text="Select a folder where your generated images and videos will be saved. The app will remember your choice.">
+              <InfoIcon className="w-3 h-3 text-slate-500" />
+            </Tooltip>
+          </div>
           <span className="font-semibold text-white">{projectLabel}</span>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${persistClass}`}>
-            {persistLabel}
-          </span>
+          <Tooltip text={persistGranted ? "Your project folder will persist across browser sessions" : persistGranted === false ? "Your storage may be cleared when low on disk space" : "Storage persistence status unknown"}>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${persistClass}`}>
+              {persistLabel}
+            </span>
+          </Tooltip>
           <button
             type="button"
             onClick={handlePick}
             disabled={busy}
             className="rounded-full border border-white/20 px-3 py-1 font-semibold text-xs text-white transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? "Connecting…" : "Pick Folder"}
+            {busy ? "Connecting…" : project ? "Change Folder" : "Pick Folder"}
           </button>
-          <button
-            type="button"
-            onClick={handleReRequest}
-            className="rounded-full border border-white/10 px-3 py-1 font-semibold text-xs text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
-          >
-            Re-request Permission
-          </button>
+          {project ? (
+            <Tooltip text="If you lose access to your folder, click here to re-grant permissions">
+              <button
+                type="button"
+                onClick={handleReRequest}
+                className="rounded-full border border-white/10 px-3 py-1 font-semibold text-xs text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
+              >
+                Re-request Permission
+              </button>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
       {status ? (
         <div className="border-t border-white/5 bg-white/5 px-4 py-2 text-xs text-slate-300">
           {status}
+        </div>
+      ) : !project ? (
+        <div className="border-t border-white/5 bg-gradient-to-r from-sky-500/10 to-indigo-500/10 px-4 py-2 text-xs text-sky-200">
+          👉 <strong>Getting Started:</strong> Click "Pick Folder" to select where your generated assets will be saved
         </div>
       ) : null}
     </header>

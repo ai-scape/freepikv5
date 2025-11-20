@@ -1,8 +1,4 @@
 import specs from "./models.json";
-import {
-  EXTRA_MODELS,
-  type ModelSpec as ExtraModelSpec,
-} from "./models-extra";
 import type {
   ModelProvider,
   TaskPollingConfig,
@@ -18,6 +14,7 @@ export type ParamDefinition = {
   values?: Array<string | number>;
   default?: string | number | boolean;
   uiKey?: keyof UnifiedPayload;
+  hidden?: boolean; // Internal params that shouldn't show in UI
 };
 
 export type ModelSpec = {
@@ -25,13 +22,14 @@ export type ModelSpec = {
   endpoint: string;
   provider?: ModelProvider;
   label?: string;
-  supports: {
-    startFrame: SupportFlag;
-    endFrame: SupportFlag;
-    audio: SupportFlag;
-    resolution: SupportFlag;
-    aspectRatio: SupportFlag;
-    fps: SupportFlag;
+  pricing?: string;
+  supports?: {
+    startFrame?: boolean;
+    endFrame?: boolean;
+    audio?: boolean;
+    resolution?: boolean;
+    aspectRatio?: boolean;
+    fps?: boolean;
   };
   params: Record<string, ParamDefinition | undefined>;
   output: {
@@ -66,384 +64,138 @@ export type UnifiedPayload = {
   enable_translation?: boolean;
   watermark?: string;
   seed?: number;
+  camera_fixed?: boolean;
+  enable_safety_checker?: boolean;
+  acceleration?: string;
 };
 
+// Helper function to extract video URL from KIE response
+function extractKieVideoUrl(data: unknown): string | undefined {
+  const json = (data as { resultJson?: string } | undefined)?.resultJson;
+  if (typeof json !== "string") return undefined;
+  try {
+    const parsed = JSON.parse(json) as { resultUrls?: string[] };
+    return (parsed.resultUrls ?? []).find(
+      (url) => typeof url === "string" && url.startsWith("http")
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+// Load models from JSON and add adapters for KIE models
 const jsonSpecs =
-  (specs.models as unknown as ModelSpec[])?.map((spec) => ({
-    ...spec,
-    label: spec.label ?? spec.id,
-    provider: spec.provider ?? "fal",
-  })) ?? [];
+  (specs.models as unknown as ModelSpec[])?.map((spec) => {
+    const model: ModelSpec = {
+      ...spec,
+      label: spec.label ?? spec.id,
+      provider: spec.provider ?? "fal",
+    };
 
-const kling25 = jsonSpecs.find((spec) => spec.id === "kling-2.5-pro");
-if (kling25) {
-  kling25.provider = "kie";
-  kling25.endpoint = "/api/v1/jobs/createTask";
-  kling25.taskConfig = {
-    statusEndpoint: "/api/v1/jobs/recordInfo",
-    statePath: "data.state",
-    successStates: ["success"],
-    failureStates: ["fail"],
-    responseDataPath: "data",
-    pollIntervalMs: 4000,
-  };
-  kling25.adapter = {
-    mapInput: (unified) => {
-      if (!unified.start_frame_url) {
-        throw new Error("Start frame is required for Kling 2.5 Pro.");
-      }
-      const input: Record<string, string | number> & {
-        prompt: string;
-        image_url: string;
-      } = {
-        prompt: unified.prompt,
-        image_url: unified.start_frame_url,
-      };
-      if (unified.duration !== undefined) {
-        input.duration = String(unified.duration);
-      }
-      if (unified.negative_prompt) {
-        input.negative_prompt = unified.negative_prompt;
-      }
-      if (typeof unified.cfg_scale === "number") {
-        input.cfg_scale = unified.cfg_scale;
-      }
-      return {
-        model: "kling/v2-5-turbo-image-to-video-pro",
-        input,
-      };
-    },
-    getVideoUrl: (data) => {
-      const json = (data as { resultJson?: string } | undefined)?.resultJson;
-      if (typeof json !== "string") return undefined;
-      try {
-        const parsed = JSON.parse(json) as {
-          resultUrls?: string[];
-        };
-        return (parsed.resultUrls ?? []).find(
-          (url): url is string => typeof url === "string" && url.startsWith("http")
-        );
-      } catch {
-        return undefined;
-      }
-    },
-  };
-}
+    // Add adapters for KIE models that need special input mapping
+    if (model.provider === "kie") {
+      // Check if this is a VEO model (direct API, not Jobs API)
+      if (model.id.startsWith("veo-3.1")) {
+        model.adapter = {
+          mapInput: (unified) => {
+            const output: Record<string, FalInputValue> = {
+              prompt: unified.prompt,
+            };
 
-const kling21 = jsonSpecs.find((spec) => spec.id === "kling-2.1-pro");
-if (kling21) {
-  kling21.provider = "kie";
-  kling21.endpoint = "/api/v1/jobs/createTask";
-  kling21.taskConfig = {
-    statusEndpoint: "/api/v1/jobs/recordInfo",
-    statePath: "data.state",
-    successStates: ["success"],
-    failureStates: ["fail"],
-    responseDataPath: "data",
-    pollIntervalMs: 4000,
-  };
-  kling21.adapter = {
-    mapInput: (unified) => {
-      if (!unified.start_frame_url) {
-        throw new Error("Start frame is required for Kling 2.1 Pro.");
-      }
-      const input: Record<string, string | number> & {
-        prompt: string;
-        image_url: string;
-      } = {
-        prompt: unified.prompt,
-        image_url: unified.start_frame_url,
-      };
-      if (unified.end_frame_url) {
-        input.tail_image_url = unified.end_frame_url;
-      }
-      if (unified.duration !== undefined) {
-        input.duration = String(unified.duration);
-      }
-      if (unified.negative_prompt) {
-        input.negative_prompt = unified.negative_prompt;
-      }
-      if (typeof unified.cfg_scale === "number") {
-        input.cfg_scale = unified.cfg_scale;
-      }
-      return {
-        model: "kling/v2-1-pro",
-        input,
-      };
-    },
-    getVideoUrl: (data) => {
-      const json = (data as { resultJson?: string } | undefined)?.resultJson;
-      if (typeof json !== "string") return undefined;
-      try {
-        const parsed = JSON.parse(json) as { resultUrls?: string[] };
-        return (parsed.resultUrls ?? []).find((url) =>
-          typeof url === "string" && url.startsWith("http")
-        );
-      } catch {
-        return undefined;
-      }
-    },
-  };
-}
+            // Add imageUrls if startFrame is provided and this is I2V model
+            if (model.id.includes("i2v") && unified.start_frame_url) {
+              const urls = [unified.start_frame_url];
+              if (unified.end_frame_url) {
+                urls.push(unified.end_frame_url);
+              }
+              output.imageUrls = urls;
+            }
 
-const hailuo23 = jsonSpecs.find((spec) => spec.id === "hailuo-2.3-pro");
-if (hailuo23) {
-  hailuo23.provider = "kie";
-  hailuo23.endpoint = "/api/v1/jobs/createTask";
-  hailuo23.taskConfig = {
-    statusEndpoint: "/api/v1/jobs/recordInfo",
-    statePath: "data.state",
-    successStates: ["success"],
-    failureStates: ["fail"],
-    responseDataPath: "data",
-    pollIntervalMs: 4000,
-  };
-  hailuo23.adapter = {
-    mapInput: (unified) => {
-      if (!unified.start_frame_url) {
-        throw new Error("Start frame is required for Hailuo 2.3.");
-      }
-      const input: Record<string, string | number | boolean> & {
-        prompt: string;
-        image_url: string;
-      } = {
-        prompt: unified.prompt,
-        image_url: unified.start_frame_url,
-      };
-      if (unified.duration !== undefined) {
-        input.duration = String(unified.duration);
-      }
-      if (unified.resolution) {
-        input.resolution = unified.resolution;
-      }
-      if (typeof unified.prompt_optimizer === "boolean") {
-        input.prompt_optimizer = unified.prompt_optimizer;
-      }
-      return {
-        model: "hailuo/2-3-image-to-video-pro",
-        input,
-      };
-    },
-    getVideoUrl: (data) => {
-      const json = (data as { resultJson?: string } | undefined)?.resultJson;
-      if (typeof json !== "string") return undefined;
-      try {
-        const parsed = JSON.parse(json) as { resultUrls?: string[] };
-        return (parsed.resultUrls ?? []).find((url) =>
-          typeof url === "string" && url.startsWith("http")
-        );
-      } catch {
-        return undefined;
-      }
-    },
-  };
-}
+            // Map other parameters
+            for (const [paramKey, definition] of Object.entries(model.params)) {
+              if (!definition || paramKey === "prompt" || paramKey === "imageUrls") continue;
 
-const VEO_CONFIG: Record<
-  string,
-  {
-    apiModel: "veo3" | "veo3_fast";
-    generationType: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO";
-    requiresStart: boolean;
-    allowEnd?: boolean;
-    reference?: { min?: number; max: number };
-  }
-> = {
-  "veo-3.1-fast-text": {
-    apiModel: "veo3_fast",
-    generationType: "TEXT_2_VIDEO",
-    requiresStart: false,
-  },
-  "veo-3.1-fast-firstlast": {
-    apiModel: "veo3_fast",
-    generationType: "FIRST_AND_LAST_FRAMES_2_VIDEO",
-    requiresStart: true,
-    allowEnd: true,
-  },
-  "veo-3.1-fast-reference": {
-    apiModel: "veo3_fast",
-    generationType: "REFERENCE_2_VIDEO",
-    requiresStart: false,
-    reference: { min: 1, max: 3 },
-  },
-};
+              const uiKey = definition.uiKey ?? (paramKey as keyof UnifiedPayload);
+              const value = unified[uiKey];
 
-for (const [modelId, config] of Object.entries(VEO_CONFIG)) {
-  const target = jsonSpecs.find((spec) => spec.id === modelId);
-  if (!target) continue;
-  target.provider = "kie";
-  target.endpoint = "/api/v1/jobs/createTask";
-  target.taskConfig = {
-    statusEndpoint: "/api/v1/jobs/recordInfo",
-    statePath: "data.state",
-    successStates: ["success"],
-    failureStates: ["fail"],
-    responseDataPath: "data",
-    pollIntervalMs: 4000,
-  };
-  if (config.reference) {
-    target.referenceImages = config.reference;
-  }
-  target.adapter = {
-    mapInput: (unified) => {
-      const aspectRatio = unified.aspect_ratio ?? "16:9";
-      if (
-        config.generationType === "REFERENCE_2_VIDEO" &&
-        aspectRatio !== "16:9"
-      ) {
-        throw new Error("Veo reference mode only supports 16:9 aspect ratio.");
-      }
-      const imageUrls: string[] = [];
-      if (config.requiresStart) {
-        if (!unified.start_frame_url) {
-          throw new Error("Start frame is required for this Veo model.");
-        }
-        imageUrls.push(unified.start_frame_url);
-        if (config.allowEnd && unified.end_frame_url) {
-          imageUrls.push(unified.end_frame_url);
-        }
-      }
-      if (config.reference && unified.reference_image_urls?.length) {
-        imageUrls.push(
-          ...unified.reference_image_urls.slice(0, config.reference.max)
-        );
-      }
-      return {
-        model: config.apiModel,
-        generationType: config.generationType,
-        prompt: unified.prompt,
-        ...(imageUrls.length ? { imageUrls } : {}),
-        aspectRatio,
-        ...(unified.enable_translation !== undefined
-          ? { enableTranslation: unified.enable_translation }
-          : {}),
-        ...(unified.enable_prompt_expansion !== undefined
-          ? { enablePromptExpansion: unified.enable_prompt_expansion }
-          : {}),
-        ...(unified.seed !== undefined ? { seeds: unified.seed } : {}),
-      };
-    },
-    getVideoUrl: (data) => {
-      const json = (data as { resultJson?: string } | undefined)?.resultJson;
-      if (typeof json !== "string") return undefined;
-      try {
-        const parsed = JSON.parse(json) as { resultUrls?: string[] };
-        return (parsed.resultUrls ?? []).find(
-          (url) => typeof url === "string" && url.startsWith("http")
-        );
-      } catch {
-        return undefined;
-      }
-    },
-  };
-}
+              if (value !== undefined) {
+                output[paramKey] = value;
+              } else if (definition.default !== undefined) {
+                output[paramKey] = definition.default;
+              }
+            }
 
-const RESOLUTION_CONFIG: Record<
-  string,
-  { values: Array<string | number>; default: string | number }
-> = {
-  "seedance-pro": {
-    values: ["480p", "720p", "1080p"],
-    default: "1080p",
-  },
-  "wan-2.2-turbo": {
-    values: ["480p", "580p", "720p"],
-    default: "720p",
-  },
-};
-
-const ASPECT_RATIO_CONFIG: Record<
-  string,
-  { values: Array<string | number>; default: string | number }
-> = {
-  "seedance-pro": {
-    values: ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
-    default: "auto",
-  },
-  "wan-2.2-turbo": {
-    values: ["auto", "16:9", "9:16", "1:1"],
-    default: "auto",
-  },
-};
-
-const extraSpecs: ModelSpec[] = EXTRA_MODELS.map((extra: ExtraModelSpec): ModelSpec => {
-  const supports: ModelSpec["supports"] = {
-    startFrame: true,
-    endFrame: extra.supportsEnd,
-    audio: false,
-    resolution: Boolean(RESOLUTION_CONFIG[extra.id]),
-    aspectRatio: Boolean(ASPECT_RATIO_CONFIG[extra.id]),
-    fps: false,
-  };
-
-  const params: Record<string, ParamDefinition | undefined> = {
-    prompt: { type: "string", required: true },
-    start_frame_url: {
-      type: "string",
-      required: true,
-      uiKey: "start_frame_url",
-    },
-    ...(extra.supportsEnd
-      ? {
-          end_frame_url: {
-            type: "string",
-            required: false,
-            uiKey: "end_frame_url",
+            return output;
           },
-        }
-      : {}),
-  };
+          getVideoUrl: (data) => {
+            // VEO returns direct video URL in response
+            return (data as { url?: string } | undefined)?.url;
+          },
+        };
+      } else {
+        // Jobs API models (Kling,  Hailuo, Wan, Seedance)
+        model.adapter = {
+          mapInput: (unified) => {
+            const input: Record<string, FalInputValue> = {};
 
-  const resolutionConfig = RESOLUTION_CONFIG[extra.id];
-  if (resolutionConfig) {
-    params.resolution = {
-      type: "enum",
-      values: resolutionConfig.values,
-      default: resolutionConfig.default,
-    };
-  }
+            // Map parameters based on model configuration
+            for (const [paramKey, definition] of Object.entries(model.params)) {
+              if (!definition) continue;
 
-  const aspectConfig = ASPECT_RATIO_CONFIG[extra.id];
-  if (aspectConfig) {
-    params.aspect_ratio = {
-      type: "enum",
-      values: aspectConfig.values,
-      default: aspectConfig.default,
-    };
-  }
+              const uiKey = definition.uiKey ?? (paramKey as keyof UnifiedPayload);
+              const value = unified[uiKey];
 
-  return {
-    id: extra.id,
-    endpoint: extra.endpoint,
-    provider: extra.provider ?? "fal",
-    label: extra.label,
-    supports,
-    params,
-    output: {
-      videoPath: "video.url",
-    },
-    referenceImages: extra.referenceImages,
-    taskConfig: extra.taskConfig,
-    adapter: {
-      mapInput: (unified) => {
-        if (!unified.start_frame_url) {
-          throw new Error("Start frame is required for this model.");
-        }
-        return extra.mapInput({
-          prompt: unified.prompt,
-          startUrl: unified.start_frame_url,
-          endUrl: unified.end_frame_url,
-          aspectRatio: unified.aspect_ratio,
-          resolution: unified.resolution,
-          promptOptimizer: unified.prompt_optimizer,
-        }) as Record<string, FalInputValue>;
-      },
-      getVideoUrl: (data) => extra.getVideoUrl(data),
-    },
-  };
-});
+              // Skip if value is undefined and not required
+              if (value === undefined) {
+                if (definition.default !== undefined) {
+                  input[paramKey] = definition.default;
+                }
+                continue;
+              }
 
-export const MODEL_SPECS: ModelSpec[] = [...jsonSpecs, ...extraSpecs];
+              // Handle type conversions
+              if (definition.type === "number" && typeof value === "string") {
+                const num = Number(value);
+                if (!isNaN(num)) {
+                  input[paramKey] = num;
+                }
+              } else if (definition.type === "string" && typeof value === "number") {
+                input[paramKey] = String(value);
+              } else {
+                input[paramKey] = value;
+              }
+            }
+
+            // Determine the KIE model name based on model ID
+            const kieModelMap: Record<string, string> = {
+              "kling-2.5-pro": "kling/v2-5-turbo-image-to-video-pro",
+              "hailuo-2.3-pro": "hailuo/2-3-image-to-video-pro",
+              "wan-2.5-i2v": "wan/2-5-image-to-video",
+              "kling-2.1-pro": "kling/v2-1-pro",
+              "wan-2.2-turbo": "wan/2-2-a14b-image-to-video-turbo",
+              "seedance-pro": "bytedance/v1-pro-image-to-video",
+            };
+
+            const kieModel = kieModelMap[model.id];
+            if (!kieModel) {
+              throw new Error(`Unknown KIE model: ${model.id}`);
+            }
+
+            return {
+              model: kieModel,
+              input,
+            };
+          },
+          getVideoUrl: extractKieVideoUrl,
+        };
+      }
+    }
+
+
+    return model;
+  }) ?? [];
+
+export const MODEL_SPECS: ModelSpec[] = jsonSpecs;
 
 export const MODEL_SPEC_MAP: Record<string, ModelSpec> = Object.fromEntries(
   MODEL_SPECS.map((spec) => [spec.id, spec])
@@ -453,8 +205,8 @@ export const DEFAULT_MODEL_ID = MODEL_SPECS[0]?.id ?? "";
 
 const SAFE_END_KEYS = new Set(["tail_image_url", "last_frame_url"]);
 
-function isSupportEnabled(flag: SupportFlag): boolean {
-  return flag === true;
+function isSupportEnabled(flag: SupportFlag | undefined): boolean {
+  return flag !== false;
 }
 
 function coerceEnumValue(
@@ -525,7 +277,7 @@ export function buildModelInput(
     }
   }
 
-  if (!isSupportEnabled(model.supports.endFrame)) {
+  if (!isSupportEnabled(model.supports?.endFrame)) {
     for (const key of SAFE_END_KEYS) {
       if (key in input) {
         delete input[key];
