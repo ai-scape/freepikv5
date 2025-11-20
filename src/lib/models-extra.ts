@@ -29,22 +29,6 @@ export type ModelSpec = {
 
 export const EXTRA_MODELS: ModelSpec[] = [
   {
-    id: "seedance-pro-fast",
-    endpoint: "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video",
-    label: "Seedance 1.0 Pro Fast (I2V)",
-    supportsEnd: false,
-    mapInput: ({ prompt, startUrl, aspectRatio, resolution }) => ({
-      prompt,
-      image_url: startUrl,
-      aspect_ratio: aspectRatio ?? "auto",
-      resolution: resolution ?? "1080p",
-      duration: "5",
-      seed: -1,
-      enable_safety_checker: true,
-    }),
-    getVideoUrl: (d) => (d as { video?: { url?: string } })?.video?.url,
-  },
-  {
     id: "seedance-pro",
     endpoint: "fal-ai/bytedance/seedance/v1/pro/image-to-video",
     label: "Seedance 1.0 Pro (I2V + End)",
@@ -60,42 +44,6 @@ export const EXTRA_MODELS: ModelSpec[] = [
       enable_safety_checker: true,
     }),
     getVideoUrl: (d) => (d as { video?: { url?: string } })?.video?.url,
-  },
-  {
-    id: "hailuo-02-pro",
-    endpoint: "/api/v1/jobs/createTask",
-    label: "Hailuo 02 Pro (I2V + End, 1080p)",
-    supportsEnd: true,
-    provider: "kie",
-    taskConfig: {
-      statusEndpoint: "/api/v1/jobs/recordInfo",
-      statePath: "data.state",
-      successStates: ["success"],
-      failureStates: ["fail"],
-      responseDataPath: "data",
-      pollIntervalMs: 4000,
-    },
-    mapInput: ({ prompt, startUrl, endUrl, promptOptimizer }) => ({
-      model: "hailuo/02-image-to-video-pro",
-      input: {
-        prompt,
-        image_url: startUrl,
-        ...(endUrl ? { end_image_url: endUrl } : {}),
-        prompt_optimizer: promptOptimizer ?? true,
-      },
-    }),
-    getVideoUrl: (data) => {
-      const json = (data as { resultJson?: string } | undefined)?.resultJson;
-      if (typeof json !== "string") return undefined;
-      try {
-        const parsed = JSON.parse(json) as { resultUrls?: string[] };
-        return (parsed.resultUrls ?? []).find((url) =>
-          typeof url === "string" && url.startsWith("http")
-        );
-      } catch {
-        return undefined;
-      }
-    },
   },
   {
     id: "wan-2.2-turbo",

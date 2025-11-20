@@ -17,28 +17,20 @@ const FALLBACK_NOTE = "See fal.ai dashboard for current pricing.";
 
 const MODEL_PRICING: Record<string, PricingInfo> = {
   // Image models
-  "flux-kontext-pro": { unit: "image", amount: 0.04, currency: "USD" },
   "nano-banana-edit": { unit: "image", amount: 0.039, currency: "USD" },
-  "nano-banana": { unit: "image", amount: 0.039, currency: "USD" },
   "imagen-4-fast": { unit: "image", amount: 0.02, currency: "USD" },
   "imagen-4": { unit: "image", amount: 0.04, currency: "USD" },
   "qwen-image-edit-plus": { unit: "image", amount: 0.03, currency: "USD" },
   "seedream-v4-edit": { unit: "image", amount: 0.03, currency: "USD" },
-  "chrono-edit": { unit: "image", amount: 0.01, currency: "USD" },
   // Video models
   "kling-2.5-pro": { unit: "video", amount: 0.35, currency: "USD" },
   "kling-2.1-pro": { unit: "video", amount: 0.45, currency: "USD" },
-  "veo-3.1-quality-text": { unit: "video", note: FALLBACK_NOTE },
-  "veo-3.1-quality-firstlast": { unit: "video", note: FALLBACK_NOTE },
   "veo-3.1-fast-text": { unit: "video", amount: 0.75, currency: "USD" },
   "veo-3.1-fast-firstlast": { unit: "video", amount: 0.75, currency: "USD" },
   "veo-3.1-fast-reference": { unit: "video", amount: 0.75, currency: "USD" },
   "ltx-2-pro": { unit: "video", amount: 0.36, currency: "USD" },
-  "ltx-2-fast": { unit: "video", amount: 0.24, currency: "USD" },
   "hailuo-2.3-pro": { unit: "video", amount: 0.49, currency: "USD" },
-  "seedance-pro-fast": { unit: "video", amount: 0.243, currency: "USD" },
   "seedance-pro": { unit: "video", amount: 0.62, currency: "USD" },
-  "hailuo-02-pro": { unit: "video", amount: 0.48, currency: "USD" },
   "wan-2.2-turbo": { unit: "video", amount: 0.1, currency: "USD" },
   "wan-2.5-i2v": { unit: "video", amount: 0.5, currency: "USD" },
   "topaz-video-upscaler": { unit: "video", note: FALLBACK_NOTE },

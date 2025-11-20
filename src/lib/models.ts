@@ -249,17 +249,6 @@ const VEO_CONFIG: Record<
     reference?: { min?: number; max: number };
   }
 > = {
-  "veo-3.1-quality-text": {
-    apiModel: "veo3",
-    generationType: "TEXT_2_VIDEO",
-    requiresStart: false,
-  },
-  "veo-3.1-quality-firstlast": {
-    apiModel: "veo3",
-    generationType: "FIRST_AND_LAST_FRAMES_2_VIDEO",
-    requiresStart: true,
-    allowEnd: true,
-  },
   "veo-3.1-fast-text": {
     apiModel: "veo3_fast",
     generationType: "TEXT_2_VIDEO",
@@ -353,10 +342,6 @@ const RESOLUTION_CONFIG: Record<
   string,
   { values: Array<string | number>; default: string | number }
 > = {
-  "seedance-pro-fast": {
-    values: ["480p", "720p", "1080p"],
-    default: "1080p",
-  },
   "seedance-pro": {
     values: ["480p", "720p", "1080p"],
     default: "1080p",
@@ -371,10 +356,6 @@ const ASPECT_RATIO_CONFIG: Record<
   string,
   { values: Array<string | number>; default: string | number }
 > = {
-  "seedance-pro-fast": {
-    values: ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
-    default: "auto",
-  },
   "seedance-pro": {
     values: ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
     default: "auto",

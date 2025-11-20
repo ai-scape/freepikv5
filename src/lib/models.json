@@ -42,49 +42,6 @@
       "output": { "videoPath": "video.url" }
     },
     {
-      "id": "veo-3.1-quality-text",
-      "label": "Veo 3.1 Quality — Text",
-      "endpoint": "/api/v1/jobs/createTask",
-      "provider": "kie",
-      "supports": {
-        "startFrame": false,
-        "endFrame": false,
-        "audio": true,
-        "resolution": true,
-        "aspectRatio": true,
-        "fps": false
-      },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
-        "seed": { "type": "number" },
-        "enable_translation": { "type": "boolean", "default": true }
-      },
-      "output": { "videoPath": "video.url" }
-    },
-    {
-      "id": "veo-3.1-quality-firstlast",
-      "label": "Veo 3.1 Quality — First & Last",
-      "endpoint": "/api/v1/jobs/createTask",
-      "provider": "kie",
-      "supports": {
-        "startFrame": true,
-        "endFrame": true,
-        "audio": true,
-        "resolution": true,
-        "aspectRatio": true,
-        "fps": false
-      },
-      "params": {
-        "prompt": { "type": "string", "required": true },
-        "duration": { "type": "enum", "values": ["5", "10"], "default": "5" },
-        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "Auto"], "default": "16:9" },
-        "seed": { "type": "number" },
-        "enable_translation": { "type": "boolean", "default": true }
-      },
-      "output": { "videoPath": "video.url" }
-    },
-    {
       "id": "veo-3.1-fast-text",
       "label": "Veo 3.1 Fast — Text",
       "endpoint": "/api/v1/jobs/createTask",
@@ -170,28 +127,6 @@
         "resolution": { "type": "enum", "values": ["1080p", "1440p", "2160p"], "default": "1080p" },
         "aspect_ratio": { "type": "enum", "values": ["16:9"], "default": "16:9" },
         "fps": { "type": "enum", "values": [25, 50], "default": 25 },
-        "generate_audio": { "type": "boolean", "default": true }
-      },
-      "output": { "videoPath": "video.url" }
-    },
-    {
-      "id": "ltx-2-fast",
-      "endpoint": "fal-ai/ltxv-2/fast/image-to-video",
-      "supports": {
-        "startFrame": true,
-        "endFrame": false,
-        "audio": true,
-        "resolution": true,
-        "aspectRatio": true,
-        "fps": true
-      },
-      "params": {
-        "image_url": { "type": "string", "required": true, "uiKey": "start_frame_url" },
-        "prompt": { "type": "string", "required": true },
-        "duration": { "type": "enum", "values": [4, 6, 8], "default": 6 },
-        "resolution": { "type": "enum", "values": ["720p", "1080p", "1440p"], "default": "1080p" },
-        "aspect_ratio": { "type": "enum", "values": ["16:9", "9:16", "1:1"], "default": "16:9" },
-        "fps": { "type": "enum", "values": [25, 30], "default": 25 },
         "generate_audio": { "type": "boolean", "default": true }
       },
       "output": { "videoPath": "video.url" }

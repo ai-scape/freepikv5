@@ -86,7 +86,6 @@ export default function ControlsPane() {
   const [referenceUploads, setReferenceUploads] = useState<ReferenceUpload[]>([]);
   const [size, setSize] = useState<ImageSizePreset>("square_hd");
   const [steps, setSteps] = useState("");
-  const [temporal, setTemporal] = useState(true);
   const [imageResolution, setImageResolution] = useState("1K");
   const [maxImages, setMaxImages] = useState("1");
   const [status, setStatus] = useState<string | null>(null);
@@ -752,7 +751,6 @@ export default function ControlsPane() {
           imageUrls: imageReferenceUrls,
           size,
           seed: parseSeed(),
-          temporal: selectedImage.id === "chrono-edit" ? temporal : undefined,
           steps: stepsValue,
           imageResolution:
             selectedImage.id === "seedream-v4-edit" ? imageResolution : undefined,
@@ -1115,17 +1113,6 @@ export default function ControlsPane() {
                 />
               </div>
             </div>
-
-            {selectedImage?.id === "chrono-edit" ? (
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                <input
-                  type="checkbox"
-                  checked={temporal}
-                  onChange={(event) => setTemporal(event.target.checked)}
-                />
-                Temporal reasoning
-              </label>
-            ) : null}
 
             {selectedImage?.id === "seedream-v4-edit" ? (
               <div className="grid grid-cols-2 gap-2">
