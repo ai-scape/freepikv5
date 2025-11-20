@@ -16,7 +16,6 @@ import {
 import {
   IMAGE_MODELS,
   type ImageJob,
-  type ImageSizePreset,
 } from "../lib/image-models";
 import {
   type UpscaleJob,
@@ -89,9 +88,8 @@ export default function ControlsPane() {
   const [endFrame, setEndFrame] = useState<UploadSlot>({ uploading: false });
   const [seed, setSeed] = useState("");
   const [referenceUploads, setReferenceUploads] = useState<ReferenceUpload[]>([]);
-  const [size, setSize] = useState<ImageSizePreset>("square_hd");
+  const [aspectRatio, setAspectRatio] = useState("1:1");
   const [imageResolution, setImageResolution] = useState("1K");
-  const [maxImages, setMaxImages] = useState("1");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [isStartDragActive, setIsStartDragActive] = useState(false);
@@ -187,11 +185,24 @@ export default function ControlsPane() {
   }, []);
 
   useEffect(() => {
-    if (selectedImage?.id !== "seedream-v4-edit") {
+    const ui = selectedImage?.ui;
+    const aspectOptions =
+      ui?.aspectRatios && ui.aspectRatios.length > 0
+        ? ui.aspectRatios
+        : [
+          { value: "16:9", label: "16:9" },
+          { value: "4:3", label: "4:3" },
+          { value: "1:1", label: "1:1" },
+          { value: "3:2", label: "3:2" },
+          { value: "9:16", label: "9:16" },
+        ];
+    setAspectRatio(aspectOptions[0]?.value ?? "1:1");
+    if (ui?.resolutions?.length) {
+      setImageResolution(ui.resolutions[0].value);
+    } else {
       setImageResolution("1K");
-      setMaxImages("1");
     }
-  }, [selectedImage?.id]);
+  }, [selectedImage?.id, selectedImage?.ui]);
 
   const parseSeed = () => {
     if (!seed.trim()) return undefined;
@@ -398,6 +409,10 @@ export default function ControlsPane() {
     modelKind === "video" && videoReferenceConfig
       ? uploadedReferenceUrls
       : [];
+  const imageRequiresReference =
+    modelKind === "image" && selectedImage?.requireReference === true;
+  const isMissingImageReference =
+    imageRequiresReference && imageReferenceUrls.length === 0;
   const isByteDanceUpscale = selectedUpscale?.id === "bytedance-video-upscaler";
   const isFlashUpscale = selectedUpscale?.id === "flashvsr-video-upscaler";
   const showUpscaleFactor = selectedUpscale
@@ -725,31 +740,23 @@ export default function ControlsPane() {
           ? { taskConfig: selectedVideo.taskConfig }
           : undefined;
       } else if (modelKind === "image" && selectedImage) {
-        if (
-          (selectedImage.maxRefs ?? 0) > 0 &&
-          imageReferenceUrls.length === 0
-        ) {
+        if (selectedImage.requireReference && imageReferenceUrls.length === 0) {
           throw new Error("Add at least one reference image.");
         }
 
-
-        const parsedMaxImages =
-          selectedImage.id === "seedream-v4-edit"
-            ? (() => {
-              const value = Number(maxImages);
-              if (Number.isNaN(value)) return 1;
-              return Math.min(6, Math.max(1, Math.round(value)));
-            })()
-            : undefined;
+        const maxImagesConfig = selectedImage.ui?.maxImages;
+        const parsedMaxImages = maxImagesConfig
+          ? maxImagesConfig.default ?? maxImagesConfig.min ?? 1
+          : undefined;
 
         const imageJob: ImageJob = {
           prompt: prompt.trim(),
           imageUrls: imageReferenceUrls,
-          size,
+          aspectRatio,
           seed: parseSeed(),
-          imageResolution:
-            selectedImage.id === "seedream-v4-edit" ? imageResolution : undefined,
+          imageResolution: selectedImage.ui?.resolutions ? imageResolution : undefined,
           maxImages: parsedMaxImages,
+          numImages: parsedMaxImages,
         };
 
         endpoint = selectedImage.endpoint;
@@ -1038,65 +1045,51 @@ export default function ControlsPane() {
               />
             </div>
 
-            {/* 3. Size & Settings */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* 3. Aspect ratio & model-specific inputs */}
+            <div className="space-y-2">
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Size Preset
+                  Aspect ratio
                 </label>
                 <select
-                  value={size}
-                  onChange={(event) =>
-                    setSize(event.target.value as ImageSizePreset)
-                  }
+                  value={aspectRatio}
+                  onChange={(event) => setAspectRatio(event.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                 >
-                  <option value="square_hd">Square HD (1:1)</option>
-                  <option value="square">Square (1:1)</option>
-                  <option value="portrait_4_3">Portrait (3:4)</option>
-                  <option value="portrait_3_2">Portrait (2:3)</option>
-                  <option value="portrait_16_9">Portrait (9:16)</option>
-                  <option value="landscape_4_3">Landscape (4:3)</option>
-                  <option value="landscape_3_2">Landscape (3:2)</option>
-                  <option value="landscape_16_9">Landscape (16:9)</option>
-                  <option value="landscape_21_9">Landscape (21:9)</option>
+                  {(selectedImage?.ui?.aspectRatios ??
+                    [
+                      { value: "16:9", label: "16:9" },
+                      { value: "4:3", label: "4:3" },
+                      { value: "1:1", label: "1:1" },
+                      { value: "3:2", label: "3:2" },
+                      { value: "9:16", label: "9:16" },
+                    ]).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                 </select>
               </div>
-            </div>
 
-            {selectedImage?.id === "seedream-v4-edit" ? (
-              <div className="grid grid-cols-2 gap-2">
+              {selectedImage?.ui?.resolutions ? (
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Image resolution
+                    Resolution
                   </label>
                   <select
                     value={imageResolution}
                     onChange={(event) => setImageResolution(event.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                   >
-                    {["1K", "2K", "4K"].map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                    {selectedImage.ui.resolutions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Max images
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={6}
-                    value={maxImages}
-                    onChange={(event) => setMaxImages(event.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                  />
-                </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
 
             {/* 4. Seed */}
             <div className="space-y-1">
@@ -1666,14 +1659,16 @@ export default function ControlsPane() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="submit"
-            disabled={busy || pendingUploads}
+            disabled={busy || pendingUploads || isMissingImageReference}
             className="rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy
               ? "Generating…"
               : pendingUploads
                 ? "Waiting on uploads…"
-                : "Generate"}
+                : isMissingImageReference
+                  ? "Add a reference image"
+                  : "Generate"}
           </button>
           {pricingLabel ? (
             <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-slate-300">
@@ -1684,6 +1679,10 @@ export default function ControlsPane() {
         {status ? (
           <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
             {status}
+          </div>
+        ) : isMissingImageReference ? (
+          <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+            Add at least one reference image to generate with this model.
           </div>
         ) : null}
       </div>

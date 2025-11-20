@@ -59,6 +59,56 @@
       }
     },
     {
+      "id": "kling-2.5-pro-fal",
+      "label": "Kling 2.5 Turbo Pro (FAL)",
+      "endpoint": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
+      "provider": "fal",
+      "pricing": "$0.35 (5s), $0.70 (10s)",
+      "supports": {
+        "startFrame": true,
+        "endFrame": true,
+        "audio": false,
+        "resolution": false,
+        "aspectRatio": false,
+        "fps": false
+      },
+      "params": {
+        "prompt": {
+          "type": "string",
+          "required": true
+        },
+        "image_url": {
+          "type": "string",
+          "required": true,
+          "uiKey": "start_frame_url"
+        },
+        "duration": {
+          "type": "enum",
+          "values": [
+            "5",
+            "10"
+          ],
+          "default": "5"
+        },
+        "negative_prompt": {
+          "type": "string",
+          "default": "blur, distort, and low quality",
+          "hidden": true
+        },
+        "cfg_scale": {
+          "type": "number",
+          "default": 0.5
+        },
+        "tail_image_url": {
+          "type": "string",
+          "uiKey": "end_frame_url"
+        }
+      },
+      "output": {
+        "videoPath": "video.url"
+      }
+    },
+    {
       "id": "hailuo-2.3-pro",
       "label": "Hailuo 2.3 Pro",
       "endpoint": "/api/v1/jobs/createTask",

@@ -3,6 +3,7 @@ import type {
   ModelProvider,
   TaskPollingConfig,
 } from "./providers";
+import { extractUrl } from "./providers/shared";
 
 type SupportFlag = boolean | "unstable" | "unspecified";
 
@@ -91,6 +92,40 @@ const jsonSpecs =
       label: spec.label ?? spec.id,
       provider: spec.provider ?? "fal",
     };
+
+    // Adapter for FAL Kling 2.5 Turbo Pro I2V
+    if (model.id === "kling-2.5-pro-fal") {
+      model.adapter = {
+        mapInput: (unified) => {
+          if (!unified.start_frame_url) {
+            throw new Error("Start frame is required for Kling 2.5 Turbo Pro (FAL).");
+          }
+          const durationRaw = unified.duration ?? "5";
+          const duration =
+            typeof durationRaw === "number"
+              ? durationRaw
+              : Number.isFinite(Number(durationRaw))
+                ? Number(durationRaw)
+                : 5;
+          const input: Record<string, FalInputValue> = {
+            prompt: unified.prompt,
+            image_url: unified.start_frame_url,
+            duration,
+            negative_prompt: unified.negative_prompt ?? "blur, distort, and low quality",
+            cfg_scale:
+              typeof unified.cfg_scale === "number" && Number.isFinite(unified.cfg_scale)
+                ? unified.cfg_scale
+                : 0.5,
+          };
+          if (unified.end_frame_url) {
+            input.tail_image_url = unified.end_frame_url;
+          }
+          // FAL endpoint expects fields at the root, not nested under "input"
+          return input;
+        },
+        getVideoUrl: (data) => extractUrl(data, 0, 5),
+      };
+    }
 
     // Add adapters for KIE models that need special input mapping
     if (model.provider === "kie") {
