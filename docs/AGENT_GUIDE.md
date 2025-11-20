@@ -1,30 +1,82 @@
 # Agent Guide
 
-Automation agents extending this project should understand its Chrome-only, filesystem-first architecture before making changes.
+This guide is designed for AI agents and developers to quickly understand the codebase, architecture, and development workflows of AI Asset Studio.
 
-## Runtime Primitives
+## 🏗️ Architecture Overview
 
-- **File System Access API:** All renders are written straight to the user-selected folder (or OPFS fallback) via helpers in `src/fs`. Never reintroduce `/api/assets` routes or Node middleware.
-  - `fs/dir.ts` handles picking/saving directory handles, rehydrating them from IndexedDB, and ensuring read/write permission.
-  - `fs/write.ts`, `fs/tree.ts`, and `fs/preview.ts` implement blob writes, directory walking, and object URL previews.
-- **Global state:** `src/state/catalog.tsx` stores the active handle, file tree, filters, and current selection inside a React context. When adding features that touch the tree, call `refreshTree(preferredPath)` so selection stays in sync.
-- **Provider clients:** `src/lib/providers` centralizes `callModelEndpoint`, `getProviderKey`, and provider metadata. `src/lib/fal.ts` and `src/lib/kie.ts` implement the fetch clients (keys live in `VITE_FAL_KEY` / `VITE_KIE_KEY`), while `uploadToFal` continues to handle drag-and-drop FormData uploads to `https://fal.run/storage/upload`. Do not add new backend shims or `@fal-ai/client` usage beyond that uploader.
-- **Model metadata:** Video specs live in `src/lib/models.json` + `models-extra.ts`, while image specs are defined in `src/lib/image-models.ts`. Pricing badges for the controls pane come from `src/lib/pricing.ts`.
-- **UI shell:** `src/app/page.tsx` composes `ProjectBar`, `ControlsPane`, `FileBrowser`, and `PreviewPane` inside a fixed `grid-cols-[320px_1fr_1fr]`. Keep this layout when adding panes or overlays.
-- **Controls pane:** `src/components/ControlsPane.tsx` now handles prompt inputs plus drag-and-drop upload zones (start frame, optional end frame, image references). Upload success is required before calling `callModelEndpoint`, so keep the pending-upload safeguards in place. The rest of the controls render dynamically from `ModelSpec.params`, so extending/renaming params in `models.json` automatically updates the UI.
+The application is a **client-side only** React application (Vite + TypeScript) that interacts directly with AI provider APIs (KIE, FAL). It uses the **File System Access API** to read/write files directly to the user's local disk, bypassing the need for a backend server or downloads folder.
 
-## Development Practices
+### Key Directories
 
-- **Environment:** The app only works in Chromium browsers because of the File System Access API. Any new code paths must guard against unsupported browsers and fall back to OPFS when folder picking fails.
-- **Lint/tests:** Lint with `npm run lint`. There is no automated test suite, so validate manually: pick folder → set `VITE_FAL_KEY` → drop frames/refs → run image/video model → confirm files appear and preview loads after reload.
-- **Secrets:** Never ship keys inside the repo. The runtime reads `import.meta.env.VITE_FAL_KEY` for FAL and `import.meta.env.VITE_KIE_KEY` for KIE; document updates should remind users to set these in `.env`.
-- **Persistence state:** The project bar surfaces `navigator.storage.persist()` status and exposes “Re-request Permission.” If you add new long-running writes, surface failures through that bar (or ControlsPane status) instead of silent console logs.
+- **`src/app`**: Main application shell and layout.
+- **`src/components`**: UI components.
+  - `ControlsPane.tsx`: The core logic for model selection, parameter inputs, and generation triggers.
+  - `FileBrowser.tsx`: Displays the file tree of the selected project folder.
+  - `PreviewPane.tsx`: Handles file previews (images/videos).
+  - `ProjectBar.tsx`: Manages folder selection and permission persistence.
+- **`src/fs`**: File system utilities (OPFS fallback, directory walking, blob writing).
+- **`src/lib`**: Core business logic.
+  - `models.json`: **Single source of truth** for Video models (params, endpoints, pricing).
+  - `image-models.ts`: Definitions for Image models.
+  - `upscale-models.ts`: Definitions for Upscale models.
+  - `providers/`: API client implementations for KIE and FAL.
+- **`src/state`**: Global state management via React Context (`useCatalog`).
 
-## Safe Editing Tips
+## 🧩 Key Concepts
 
-- Update `src/lib/pricing.ts` whenever rate cards change; UI relies on formatted `amount` values.
-- When introducing new file types, expand `src/lib/mime.ts` and adjust `EXT_FILTERS` in `FileBrowser` so filters remain accurate.
-- If you modify file naming, update `src/lib/filename.ts` and keep the `modelId + slug + nanoid` format so downstream automations can match assets.
-- For new storage behaviors, stick to the helpers in `src/fs/*`. They already sanitize paths and create directories recursively—avoid reinventing similar logic.
+### 1. Model Definitions
+Models are defined in `src/lib/models.json` (Video) and `src/lib/image-models.ts` (Image).
+- **Video Models:** Use a JSON schema to define parameters (`params`). The UI dynamically renders controls based on this schema.
+- **Image Models:** Defined as TypeScript objects with `mapInput` functions to transform UI state into API payloads.
+- **Pricing:** Pricing strings are now embedded directly in the model definitions (`pricing` field).
 
-Use this guide as a checklist when adding models, tweaking pricing, or changing the filesystem workflow. The app’s value proposition is “Chrome-only, zero-backend AI orchestration,” so keep that constraint intact.
+### 2. API Integration (`src/lib/providers`)
+- **KIE.ai:** The primary provider for video and image generation.
+  - `src/lib/kie.ts`: Handles authentication, request signing, and polling for "Jobs API" models.
+  - Supports both **Jobs API** (async polling) and **Direct API** (sync response, e.g., VEO/Flux).
+- **FAL.ai:** Used primarily for **temporary file storage** (`uploadToFal`) because KIE does not currently provide a general-purpose storage API.
+  - `src/lib/fal.ts`: Handles uploads to `https://fal.run/storage/upload`.
+
+### 3. File System (`src/fs`)
+- **Direct Access:** The app requests R/W access to a local folder.
+- **Persistence:** Directory handles are stored in IndexedDB so users don't have to re-pick folders on reload (though permissions must be re-granted).
+- **OPFS Fallback:** If the user denies access or uses an unsupported browser, the app falls back to the Origin Private File System (browser-internal storage).
+
+## 🛠️ Development Workflows
+
+### Adding a New Video Model
+1.  Open `src/lib/models.json`.
+2.  Add a new entry to the `models` array.
+3.  Define `id`, `label`, `endpoint`, `pricing`, and `params`.
+4.  **Note:** If the model uses the standard KIE Jobs API, no code changes are needed—the UI will automatically render the new model.
+
+### Adding a New Image Model
+1.  Open `src/lib/image-models.ts`.
+2.  Add a new `ImageModelSpec` to the `IMAGE_MODELS` array.
+3.  Implement `mapInput` to transform the standard `ImageJob` into the provider's specific payload format.
+
+### Modifying the UI
+- **`ControlsPane.tsx`** is the main control center. It is divided into three explicit sections:
+  - `modelKind === "image"`
+  - `modelKind === "video"`
+  - `modelKind === "upscale"`
+- Each section handles its own specific inputs (Reference Uploads, Prompts, Seeds, etc.).
+
+## ⚠️ Critical Constraints
+
+1.  **Browser Support:** The app relies on the **File System Access API**, which is only supported in Chromium-based browsers (Chrome, Edge, Brave). Firefox and Safari have limited or no support.
+2.  **Secrets:** API keys (`VITE_FAL_KEY`, `VITE_KIE_KEY`) must be set in `.env.local`. **NEVER commit these keys.**
+3.  **No Backend:** Do not introduce Node.js middleware or server-side logic. Everything must run in the browser.
+
+## 🔍 Troubleshooting
+
+- **"Missing API Key":** Check `.env.local` and restart the dev server.
+- **"Permission Denied":** The user must explicitly grant R/W access to the folder.
+- **"Upload Failed":** Check `uploadToFal` in `ControlsPane.tsx`. Large files (>50MB) might fail depending on FAL's limits.
+
+## 🚀 Quick Restart for Agents
+
+1.  **Read `src/lib/models.json`** to understand the current video model capabilities.
+2.  **Read `src/components/ControlsPane.tsx`** to see how inputs are mapped to API calls.
+3.  **Check `src/lib/providers/index.ts`** to see available API clients.
+

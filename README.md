@@ -83,20 +83,19 @@ For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
 ## 🎬 Available Models
 
 ### Video Generation
-- **Kling 2.5 Pro** - High-quality video generation  
-- **Veo 3.1** - Google's video model (multiple variants)
-- **LTX-2** - Fast Lightricks video model
-- **Hailuo** - Minimax's creative video generator
-- **Wan 2.5** - Wán diffusion video
+- **Kling 2.5 Pro** - High-quality video generation
+- **Veo 3.1** - Google's latest video model (Fast & I2V)
+- **Hailuo 2.3** - Minimax's creative video generator
+- **Wan 2.5** - Alibaba's advanced video model
+- **Seedance** - Bytedance's video generation model
 
 ### Image Generation
-- **Flux Kontext Pro** - Professional-grade images
-- **Imagen 4** - Google's image model  
+- **Flux Kontext Pro/Max** - Professional-grade images & editing
 - **Nano Banana** - Creative artistic images
 - **Seedream V4** - ByteDance image editing
-- **Qwen Image Edit** - Advanced image editing
 
 ### Video Upscaling
+- **Topaz Video Upscaler** - Industry standard upscaling
 - **FlashVSR** - High-quality video upscaling
 - **ByteDance Upscaler** - Professional video enhancement
 
