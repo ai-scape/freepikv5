@@ -79,6 +79,11 @@ export default function ControlsPane() {
     actions: { refreshTree },
   } = useCatalog();
   const [modelKey, setModelKey] = useState(DEFAULT_MODEL_KEY);
+  const [activeTab, setActiveTab] = useState<"image" | "video" | "upscale">(() => {
+    if (DEFAULT_MODEL_KEY.startsWith("image:")) return "image";
+    if (DEFAULT_MODEL_KEY.startsWith("upscale:")) return "upscale";
+    return "video";
+  });
   const [prompt, setPrompt] = useState("");
   const [startFrame, setStartFrame] = useState<UploadSlot>({ uploading: false });
   const [endFrame, setEndFrame] = useState<UploadSlot>({ uploading: false });
@@ -126,11 +131,7 @@ export default function ControlsPane() {
     Record<string, string | number | boolean | undefined>
   >({});
 
-  const modelKind: "video" | "image" | "upscale" = modelKey.startsWith("image:")
-    ? "image"
-    : modelKey.startsWith("upscale:")
-      ? "upscale"
-      : "video";
+  const modelKind = activeTab;
 
   const selectedVideo = useMemo(() => {
     if (modelKind !== "video") return undefined;
@@ -865,39 +866,70 @@ export default function ControlsPane() {
   return (
     <form className="flex h-full flex-col text-sm" onSubmit={handleGenerate}>
       <div className="flex-1 space-y-3 pb-40">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Model
-          </label>
-          <select
-            value={modelKey}
-            onChange={(event) => setModelKey(event.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-          >
-            <optgroup label="Video Pipelines">
-              {MODEL_SPECS.map((spec) => (
-                <option key={spec.id} value={`video:${spec.id}`}>
-                  {spec.label ?? spec.id}
-                </option>
-              ))}
-            </optgroup>
-            {UPSCALE_MODELS.length ? (
-              <optgroup label="Upscalers">
-                {UPSCALE_MODELS.map((spec) => (
-                  <option key={spec.id} value={`upscale:${spec.id}`}>
-                    {spec.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            <optgroup label="Image Pipelines">
-              {IMAGE_MODELS.map((spec) => (
-                <option key={spec.id} value={`image:${spec.id}`}>
-                  {spec.label}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+        <div className="space-y-3">
+          <div className="flex rounded-lg bg-white/5 p-1">
+            {(["image", "video", "upscale"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === "image" && IMAGE_MODELS.length) {
+                    setModelKey(`image:${IMAGE_MODELS[0].id}`);
+                  } else if (tab === "video" && MODEL_SPECS.length) {
+                    setModelKey(`video:${MODEL_SPECS[0].id}`);
+                  } else if (tab === "upscale" && UPSCALE_MODELS.length) {
+                    setModelKey(`upscale:${UPSCALE_MODELS[0].id}`);
+                  }
+                }}
+                className={`flex-1 rounded-md py-1.5 text-xs font-semibold capitalize transition-all ${activeTab === tab
+                    ? "bg-slate-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                  }`}
+              >
+                {tab === "upscale" ? "Other" : tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Model
+            </label>
+            <select
+              value={modelKey}
+              onChange={(event) => setModelKey(event.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+            >
+              {activeTab === "video" && (
+                <optgroup label="Video Pipelines">
+                  {MODEL_SPECS.map((spec) => (
+                    <option key={spec.id} value={`video:${spec.id}`}>
+                      {spec.label ?? spec.id}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {activeTab === "upscale" && UPSCALE_MODELS.length ? (
+                <optgroup label="Upscalers">
+                  {UPSCALE_MODELS.map((spec) => (
+                    <option key={spec.id} value={`upscale:${spec.id}`}>
+                      {spec.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {activeTab === "image" && (
+                <optgroup label="Image Pipelines">
+                  {IMAGE_MODELS.map((spec) => (
+                    <option key={spec.id} value={`image:${spec.id}`}>
+                      {spec.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
         </div>
 
         {/* IMAGE CONTROLS */}
