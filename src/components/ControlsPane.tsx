@@ -164,8 +164,7 @@ export default function ControlsPane() {
     modelKind === "video"
       ? videoReferenceConfig?.max ?? 0
       : selectedImage?.maxRefs ?? 0;
-  const referenceMin =
-    modelKind === "video" ? videoReferenceConfig?.min ?? 0 : 0;
+
   const registerPreview = useCallback((url: string) => {
     previewRegistry.current.add(url);
     return url;
@@ -901,8 +900,192 @@ export default function ControlsPane() {
           </select>
         </div>
 
+        {/* IMAGE CONTROLS */}
+        {modelKind === "image" ? (
+          <div className="space-y-4">
+            {/* 1. Reference Uploads (Top) */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Reference Images (optional)
+              </label>
+              <div
+                className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isReferenceDragActive
+                  ? "border-sky-400 shadow-lg shadow-sky-500/20"
+                  : "hover:border-white/20"
+                  }`}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setIsReferenceDragActive(true);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  setIsReferenceDragActive(false);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsReferenceDragActive(true);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setIsReferenceDragActive(false);
+                  void handleReferenceDrop(event.dataTransfer);
+                }}
+              >
+                <input
+                  ref={referenceInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    void handleReferenceFiles(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
+                <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
+                  <span>Drag & drop reference images or click browse.</span>
+                  <span className="text-[11px] text-slate-500">
+                    Slots: {Math.max(0, referenceLimit - referenceUploads.length)} / {referenceLimit}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                    onClick={() => referenceInputRef.current?.click()}
+                  >
+                    Browse files
+                  </button>
+                  {referenceUploads.some((entry) => entry.uploading) ? (
+                    <span className="inline-flex items-center gap-1 text-sky-200">
+                      <Spinner size="sm" /> Uploading…
+                    </span>
+                  ) : null}
+                </div>
+                {referenceUploads.length ? (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {referenceUploads.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
+                      >
+                        <div className="relative">
+                          <img
+                            src={entry.preview}
+                            alt={entry.name}
+                            className="h-20 w-full rounded-lg object-cover"
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
+                            onClick={() => removeReference(entry.id)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="mt-2 truncate font-semibold text-white">
+                          {entry.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* 2. Prompt */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Prompt
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                rows={6}
+                className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+              />
+            </div>
+
+            {/* 3. Size & Settings */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Size Preset
+                </label>
+                <select
+                  value={size}
+                  onChange={(event) =>
+                    setSize(event.target.value as ImageSizePreset)
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                >
+                  <option value="square_hd">Square HD (1:1)</option>
+                  <option value="square">Square (1:1)</option>
+                  <option value="portrait_4_3">Portrait (3:4)</option>
+                  <option value="portrait_3_2">Portrait (2:3)</option>
+                  <option value="portrait_16_9">Portrait (9:16)</option>
+                  <option value="landscape_4_3">Landscape (4:3)</option>
+                  <option value="landscape_3_2">Landscape (3:2)</option>
+                  <option value="landscape_16_9">Landscape (16:9)</option>
+                  <option value="landscape_21_9">Landscape (21:9)</option>
+                </select>
+              </div>
+            </div>
+
+            {selectedImage?.id === "seedream-v4-edit" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Image resolution
+                  </label>
+                  <select
+                    value={imageResolution}
+                    onChange={(event) => setImageResolution(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    {["1K", "2K", "4K"].map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Max images
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={6}
+                    value={maxImages}
+                    onChange={(event) => setMaxImages(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {/* 4. Seed */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Seed (optional)
+              </label>
+              <input
+                type="number"
+                value={seed}
+                onChange={(event) => setSeed(event.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                placeholder="-1 for random"
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {/* VIDEO CONTROLS */}
         {modelKind === "video" ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Start/End Frames */}
             {supportsStartFrame ? (
               <div className="flex flex-wrap gap-2">
                 <div className="flex-1 min-w-[160px] space-y-1">
@@ -1064,69 +1247,129 @@ export default function ControlsPane() {
                 ) : null}
               </div>
             ) : null}
-          </div>
-        ) : modelKind === "image" ? (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Size Preset
-                </label>
-                <select
-                  value={size}
-                  onChange={(event) =>
-                    setSize(event.target.value as ImageSizePreset)
-                  }
-                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                >
-                  <option value="square_hd">Square HD (1:1)</option>
-                  <option value="square">Square (1:1)</option>
-                  <option value="portrait_4_3">Portrait (3:4)</option>
-                  <option value="portrait_3_2">Portrait (2:3)</option>
-                  <option value="portrait_16_9">Portrait (9:16)</option>
-                  <option value="landscape_4_3">Landscape (4:3)</option>
-                  <option value="landscape_3_2">Landscape (3:2)</option>
-                  <option value="landscape_16_9">Landscape (16:9)</option>
-                  <option value="landscape_21_9">Landscape (21:9)</option>
-                </select>
-              </div>
+
+            {/* Prompt */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Prompt
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                rows={6}
+                className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+              />
             </div>
 
-            {selectedImage?.id === "seedream-v4-edit" ? (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Image resolution
-                  </label>
-                  <select
-                    value={imageResolution}
-                    onChange={(event) => setImageResolution(event.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                  >
-                    {["1K", "2K", "4K"].map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Max images
-                  </label>
+            {/* Reference Images (for video models that support it) */}
+            {referenceLimit > 0 ? (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Reference Images (optional)
+                </label>
+                <div
+                  className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isReferenceDragActive
+                    ? "border-sky-400 shadow-lg shadow-sky-500/20"
+                    : "hover:border-white/20"
+                    }`}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setIsReferenceDragActive(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setIsReferenceDragActive(false);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsReferenceDragActive(true);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsReferenceDragActive(false);
+                    void handleReferenceDrop(event.dataTransfer);
+                  }}
+                >
                   <input
-                    type="number"
-                    min={1}
-                    max={6}
-                    value={maxImages}
-                    onChange={(event) => setMaxImages(event.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    ref={referenceInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      void handleReferenceFiles(event.target.files);
+                      event.target.value = "";
+                    }}
                   />
+                  <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
+                    <span>Drag & drop reference images or click browse.</span>
+                    <span className="text-[11px] text-slate-500">
+                      Slots: {Math.max(0, referenceLimit - referenceUploads.length)} / {referenceLimit}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                      onClick={() => referenceInputRef.current?.click()}
+                    >
+                      Browse files
+                    </button>
+                    {referenceUploads.some((entry) => entry.uploading) ? (
+                      <span className="inline-flex items-center gap-1 text-sky-200">
+                        <Spinner size="sm" /> Uploading…
+                      </span>
+                    ) : null}
+                  </div>
+                  {referenceUploads.length ? (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {referenceUploads.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
+                        >
+                          <div className="relative">
+                            <img
+                              src={entry.preview}
+                              alt={entry.name}
+                              className="h-20 w-full rounded-lg object-cover"
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
+                              onClick={() => removeReference(entry.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className="mt-2 truncate font-semibold text-white">
+                            {entry.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
-          </>
-        ) : (
+
+            {/* Dynamic Params */}
+            {selectedVideo ? (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {(Object.entries(selectedVideo.params) as Array<
+                  [string, ParamDefinition | undefined]
+                >)
+                  .map(([key, definition]) =>
+                    definition ? renderParamControl(key, definition) : null
+                  )
+                  .filter(Boolean)}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* UPSCALE CONTROLS */}
+        {modelKind === "upscale" ? (
           <div className="space-y-3">
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -1135,7 +1378,7 @@ export default function ControlsPane() {
               <div
                 className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isUpscaleDragActive
                   ? "border-sky-400 shadow-lg shadow-sky-500/20"
-                  : ""
+                  : "hover:border-white/20"
                   }`}
                 onDragEnter={(event) => {
                   event.preventDefault();
@@ -1174,48 +1417,35 @@ export default function ControlsPane() {
                     event.target.value = "";
                   }}
                 />
-                {upscaleSource.preview ? (
-                  <video
-                    src={upscaleSource.preview}
-                    className="h-32 w-full rounded-xl border border-white/10 bg-black object-cover"
-                    controls
-                  />
-                ) : (
-                  <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                    Drag & drop a video
-                    <br />
-                    or click browse.
-                  </div>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                  <button
-                    type="button"
-                    className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                    onClick={() => upscaleInputRef.current?.click()}
-                  >
-                    Browse
-                  </button>
-                  {upscaleSource.uploading ? (
-                    <span className="inline-flex items-center gap-1 text-sky-200">
-                      <Spinner size="sm" /> Uploading…
-                    </span>
-                  ) : upscaleSource.url ? (
-                    <span className="text-emerald-300">Ready</span>
-                  ) : null}
-                  {upscaleSource.name ? (
-                    <span className="truncate text-slate-500">
-                      {upscaleSource.name}
-                    </span>
-                  ) : null}
-                  {upscaleSource.url || upscaleSource.preview ? (
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                      onClick={() => handleUpscaleSourceSelect(null)}
-                    >
-                      Clear
-                    </button>
-                  ) : null}
+                <div className="flex flex-col items-center justify-center py-4 text-xs text-slate-400">
+                  {upscaleSource.preview || upscaleSource.name ? (
+                    <div className="text-center">
+                      <p className="mb-2 font-semibold text-emerald-400">
+                        Video Selected
+                      </p>
+                      <p className="truncate max-w-[200px] text-slate-300">
+                        {upscaleSource.name}
+                      </p>
+                      <button
+                        type="button"
+                        className="mt-3 rounded-full border border-white/10 px-3 py-1 text-slate-300 hover:bg-white/10"
+                        onClick={() => handleUpscaleSourceSelect(null)}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-3">Drag & drop video or click browse</p>
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 px-4 py-1.5 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                        onClick={() => upscaleInputRef.current?.click()}
+                      >
+                        Browse Video
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1396,139 +1626,6 @@ export default function ControlsPane() {
                 </div>
               </div>
             ) : null}
-          </div>
-        )}
-
-        {referenceLimit > 0 ? (
-          <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Reference images
-            </label>
-            <div
-              className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-4 transition ${isReferenceDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
-                }`}
-              onDragEnter={(event) => {
-                event.preventDefault();
-                setIsReferenceDragActive(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-                setIsReferenceDragActive(false);
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setIsReferenceDragActive(true);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsReferenceDragActive(false);
-                void handleReferenceDrop(event.dataTransfer);
-              }}
-            >
-              <input
-                ref={referenceInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                  void handleReferenceFiles(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-              <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
-                <span>
-                  {modelKind === "video"
-                    ? "Drag & drop supporting stills or click browse."
-                    : "Drag & drop reference frames or click browse."}
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Slots: {Math.max(0, referenceLimit - referenceUploads.length)} / {referenceLimit}
-                </span>
-              </div>
-              {referenceMin ? (
-                <div className="mt-1 text-[11px] text-slate-500">
-                  Requires at least {referenceMin} image{referenceMin === 1 ? "" : "s"}.
-                </div>
-              ) : null}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
-                  onClick={() => referenceInputRef.current?.click()}
-                >
-                  Browse files
-                </button>
-                {referenceUploads.some((entry) => entry.uploading) ? (
-                  <span className="inline-flex items-center gap-1 text-sky-200">
-                    <Spinner size="sm" /> Uploading…
-                  </span>
-                ) : null}
-              </div>
-              {referenceUploads.length ? (
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {referenceUploads.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
-                    >
-                      <div className="relative">
-                        <img
-                          src={entry.preview}
-                          alt={entry.name}
-                          className="h-20 w-full rounded-lg object-cover"
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
-                          onClick={() => removeReference(entry.id)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <div className="mt-2 truncate font-semibold text-white">
-                        {entry.name}
-                      </div>
-                      <div className="text-slate-400">
-                        {entry.uploading
-                          ? "Uploading…"
-                          : entry.error
-                            ? `Error: ${entry.error}`
-                            : "Ready"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {modelKind !== "upscale" ? (
-          <>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Prompt
-              </label>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                rows={6}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-              />
-            </div>
-          </>
-        ) : null}
-
-        {modelKind === "video" && selectedVideo ? (
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {(Object.entries(selectedVideo.params) as Array<
-              [string, ParamDefinition | undefined]
-            >)
-              .map(([key, definition]) =>
-                definition ? renderParamControl(key, definition) : null
-              )
-              .filter(Boolean)}
           </div>
         ) : null}
       </div>

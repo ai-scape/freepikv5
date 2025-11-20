@@ -399,6 +399,7 @@
       "label": "Veo 3.1 Fast",
       "endpoint": "https://api.kie.ai/veo3/v1/generate",
       "provider": "kie",
+      "pricing": "$0.30 per video",
       "supports": {
         "startFrame": false,
         "endFrame": false,
@@ -438,72 +439,16 @@
           "default": "16:9"
         },
         "seeds": {
-          "type": "number"
+          "type": "number",
+          "hidden": true
         },
         "enableTranslation": {
           "type": "boolean",
           "default": true
         },
         "watermark": {
-          "type": "string"
-        }
-      },
-      "output": {
-        "videoPath": "video.url"
-      }
-    },
-    {
-      "id": "veo-3.1-quality",
-      "label": "Veo 3.1 Quality",
-      "endpoint": "https://api.kie.ai/veo3/v1/generate",
-      "provider": "kie",
-      "supports": {
-        "startFrame": false,
-        "endFrame": false,
-        "audio": false,
-        "resolution": false,
-        "aspectRatio": true,
-        "fps": false
-      },
-      "params": {
-        "prompt": {
           "type": "string",
-          "required": true
-        },
-        "model": {
-          "type": "enum",
-          "values": [
-            "veo3"
-          ],
-          "default": "veo3",
           "hidden": true
-        },
-        "generationType": {
-          "type": "enum",
-          "values": [
-            "TEXT_2_VIDEO"
-          ],
-          "default": "TEXT_2_VIDEO",
-          "hidden": true
-        },
-        "aspectRatio": {
-          "type": "enum",
-          "values": [
-            "16:9",
-            "9:16",
-            "Auto"
-          ],
-          "default": "16:9"
-        },
-        "seeds": {
-          "type": "number"
-        },
-        "enableTranslation": {
-          "type": "boolean",
-          "default": true
-        },
-        "watermark": {
-          "type": "string"
         }
       },
       "output": {
@@ -560,14 +505,16 @@
           "default": "16:9"
         },
         "seeds": {
-          "type": "number"
+          "type": "number",
+          "hidden": true
         },
         "enableTranslation": {
           "type": "boolean",
           "default": true
         },
         "watermark": {
-          "type": "string"
+          "type": "string",
+          "hidden": true
         }
       },
       "output": {
