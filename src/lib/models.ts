@@ -129,13 +129,11 @@ const jsonSpecs =
 
     // Add adapters for KIE models that need special input mapping
     if (model.provider === "kie") {
-      // Check if this is a VEO model (direct API, not Jobs API)
+      // Check if this is a VEO model - uses Jobs API with custom response format
       if (model.id.startsWith("veo-3.1")) {
         model.adapter = {
           mapInput: (unified) => {
-            const output: Record<string, FalInputValue> = {
-              prompt: unified.prompt,
-            };
+            const input: Record<string, FalInputValue> = {};
 
             // Add imageUrls if startFrame is provided and this is I2V model
             if (model.id.includes("i2v") && unified.start_frame_url) {
@@ -143,28 +141,30 @@ const jsonSpecs =
               if (unified.end_frame_url) {
                 urls.push(unified.end_frame_url);
               }
-              output.imageUrls = urls;
+              input.imageUrls = urls;
             }
 
             // Map other parameters
             for (const [paramKey, definition] of Object.entries(model.params)) {
-              if (!definition || paramKey === "prompt" || paramKey === "imageUrls") continue;
+              if (!definition || paramKey === "imageUrls") continue;
 
               const uiKey = definition.uiKey ?? (paramKey as keyof UnifiedPayload);
               const value = unified[uiKey];
 
               if (value !== undefined) {
-                output[paramKey] = value;
+                input[paramKey] = value;
               } else if (definition.default !== undefined) {
-                output[paramKey] = definition.default;
+                input[paramKey] = definition.default;
               }
             }
 
-            return output;
+            // VEO uses direct params (not wrapped in {model, input})
+            return input;
           },
           getVideoUrl: (data) => {
-            // VEO returns direct video URL in response
-            return (data as { url?: string } | undefined)?.url;
+            // VEO returns video URL in data.response.resultUrls[0]
+            const response = (data as { response?: { resultUrls?: string[] } })?.response;
+            return response?.resultUrls?.[0];
           },
         };
       } else {

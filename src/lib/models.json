@@ -447,7 +447,7 @@
     {
       "id": "veo-3.1-fast",
       "label": "Veo 3.1 Fast",
-      "endpoint": "https://api.kie.ai/veo3/v1/generate",
+      "endpoint": "/api/v1/veo/generate",
       "provider": "kie",
       "pricing": "$0.30 per video",
       "supports": {
@@ -457,6 +457,22 @@
         "resolution": false,
         "aspectRatio": true,
         "fps": false
+      },
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/veo/record-info",
+        "method": "GET",
+        "taskIdLocation": "query",
+        "taskIdParam": "taskId",
+        "statePath": "data.successFlag",
+        "successStates": [
+          1
+        ],
+        "failureStates": [
+          2,
+          3
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 5000
       },
       "params": {
         "prompt": {
@@ -508,8 +524,9 @@
     {
       "id": "veo-3.1-fast-i2v",
       "label": "Veo 3.1 Fast (I2V)",
-      "endpoint": "https://api.kie.ai/veo3/v1/generate",
+      "endpoint": "/api/v1/veo/generate",
       "provider": "kie",
+      "pricing": "$0.30 per video",
       "supports": {
         "startFrame": true,
         "endFrame": true,
@@ -517,6 +534,22 @@
         "resolution": false,
         "aspectRatio": true,
         "fps": false
+      },
+      "taskConfig": {
+        "statusEndpoint": "/api/v1/veo/record-info",
+        "method": "GET",
+        "taskIdLocation": "query",
+        "taskIdParam": "taskId",
+        "statePath": "data.successFlag",
+        "successStates": [
+          1
+        ],
+        "failureStates": [
+          2,
+          3
+        ],
+        "responseDataPath": "data",
+        "pollIntervalMs": 5000
       },
       "params": {
         "prompt": {
