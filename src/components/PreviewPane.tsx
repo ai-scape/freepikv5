@@ -27,16 +27,37 @@ export default function PreviewPane() {
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureStatus, setCaptureStatus] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [cropAspect, setCropAspect] = useState("1:1");
+  const [cropBusy, setCropBusy] = useState(false);
+  const [cropStatus, setCropStatus] = useState<string | null>(null);
+  const cropPresets = [
+    { value: "1:1", label: "1:1" },
+    { value: "4:3", label: "4:3" },
+    { value: "3:2", label: "3:2" },
+    { value: "16:9", label: "16:9" },
+    { value: "9:16", label: "9:16" },
+  ] as const;
   const handleDragStart = (event: React.DragEvent) => {
     if (!selected || selected.kind !== "file") return;
     event.dataTransfer.setData(FILE_ENTRY_MIME, selected.relPath);
     event.dataTransfer.effectAllowed = "copy";
   };
 
+  const parseAspectRatio = useCallback((value: string): number | null => {
+    const parts = value.split(":");
+    if (parts.length !== 2) return null;
+    const [w, h] = parts.map((part) => Number(part));
+    if (!Number.isFinite(w) || !Number.isFinite(h) || h === 0) return null;
+    return w / h;
+  }, []);
+
   useEffect(() => {
     setCanCapture(false);
     setCaptureStatus(null);
     setVideoDuration(null);
+    setCropStatus(null);
+    setCropAspect("1:1");
+    setCropBusy(false);
   }, [selected?.id]);
 
   const ensureMetadataReady = useCallback(async () => {
@@ -209,6 +230,91 @@ export default function PreviewPane() {
         : null
     );
   }, []);
+
+  const handleCropDownload = useCallback(async () => {
+    if (!selected || selected.kind !== "file" || !selected.mime.startsWith("image")) {
+      setCropStatus("Cropping is only available for images.");
+      return;
+    }
+    if (!previewUrl) {
+      setCropStatus("No image available to crop.");
+      return;
+    }
+    const ratio = parseAspectRatio(cropAspect);
+    if (ratio === null) {
+      setCropStatus("Invalid aspect ratio.");
+      return;
+    }
+
+    setCropBusy(true);
+    setCropStatus("Preparing crop…");
+
+    try {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = previewUrl;
+      await img.decode();
+
+      const imgWidth = img.naturalWidth || img.width;
+      const imgHeight = img.naturalHeight || img.height;
+      if (!imgWidth || !imgHeight) {
+        throw new Error("Unable to read image dimensions.");
+      }
+      const imageRatio = imgWidth / imgHeight;
+      let cropWidth = imgWidth;
+      let cropHeight = imgHeight;
+      if (imageRatio > ratio) {
+        cropWidth = Math.floor(imgHeight * ratio);
+      } else {
+        cropHeight = Math.floor(imgWidth / ratio);
+      }
+      const sx = Math.max(0, Math.floor((imgWidth - cropWidth) / 2));
+      const sy = Math.max(0, Math.floor((imgHeight - cropHeight) / 2));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = cropWidth;
+      canvas.height = cropHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("Unable to prepare canvas for crop.");
+      }
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, sx, sy, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+      const mime = selected.mime && selected.mime.startsWith("image/")
+        ? selected.mime
+        : "image/png";
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((out) => {
+          if (out) return resolve(out);
+          reject(new Error("Unable to create cropped image."));
+        }, mime);
+      });
+
+      const url = URL.createObjectURL(blob);
+      const baseName = selected.name.replace(/\.[^.]+$/, "");
+      const suffix = cropAspect.replace(/:/g, "x");
+      const ext = mime.includes("jpeg") ? "jpg" : mime.split("/").pop() || "png";
+      const downloadName = `${baseName}_crop_${suffix}.${ext}`;
+
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = downloadName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      setCropStatus(`Downloaded cropped image (${cropAspect}).`);
+    } catch (error) {
+      setCropStatus(
+        error instanceof Error ? error.message : "Unable to crop image."
+      );
+    } finally {
+      setCropBusy(false);
+    }
+  }, [cropAspect, parseAspectRatio, previewUrl, selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -416,6 +522,38 @@ export default function PreviewPane() {
           >
             Open in New Tab
           </a>
+        </div>
+      ) : null}
+
+      {selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
+        <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-semibold text-white">Center crop</span>
+            <select
+              value={cropAspect}
+              onChange={(event) => setCropAspect(event.target.value)}
+              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+            >
+              {cropPresets.map((preset) => (
+                <option key={preset.value} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={cropBusy}
+              onClick={() => void handleCropDownload()}
+              className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cropBusy ? "Cropping…" : "Download cropped"}
+            </button>
+          </div>
+          {cropStatus ? (
+            <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
+              {cropStatus}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -101,6 +101,12 @@ export default function ControlsPane() {
   });
   const [isUpscaleDragActive, setIsUpscaleDragActive] = useState(false);
   const [upscaleFactor, setUpscaleFactor] = useState("2");
+  const [videoUpscaleResolution, setVideoUpscaleResolution] = useState<
+    "1080p" | "2k" | "4k"
+  >("1080p");
+  const [videoUpscaleFps, setVideoUpscaleFps] = useState<"30fps" | "60fps">(
+    "30fps"
+  );
 
   const startInputRef = useRef<HTMLInputElement | null>(null);
   const endInputRef = useRef<HTMLInputElement | null>(null);
@@ -185,6 +191,12 @@ export default function ControlsPane() {
       setImageResolution("1K");
     }
   }, [selectedImage?.id, selectedImage?.ui]);
+
+  useEffect(() => {
+    setUpscaleFactor("2");
+    setVideoUpscaleResolution("1080p");
+    setVideoUpscaleFps("30fps");
+  }, [selectedUpscale?.id]);
 
   const parseSeed = () => {
     if (!seed.trim()) return undefined;
@@ -396,7 +408,6 @@ export default function ControlsPane() {
   const isMissingImageReference =
     imageRequiresReference && imageReferenceUrls.length === 0;
   const isVideoUpscaler = selectedUpscale?.id === "bytedance-video-upscaler";
-  const showUpscaleFactor = selectedUpscale ? !isVideoUpscaler : true;
 
   const handleUpscaleSourceSelect = useCallback(
     async (file: File | null) => {
@@ -760,7 +771,12 @@ export default function ControlsPane() {
 
         const job: UpscaleJob = {
           sourceUrl: upscaleSource.url,
-          ...(showUpscaleFactor ? { upscaleFactor } : {}),
+          ...(isVideoUpscaler
+            ? {
+              targetResolution: videoUpscaleResolution,
+              targetFps: videoUpscaleFps,
+            }
+            : { upscaleFactor }),
         };
 
         endpoint = selectedUpscale.endpoint;
@@ -1441,7 +1457,43 @@ export default function ControlsPane() {
                 </div>
               </div>
             </div>
-            {showUpscaleFactor ? (
+            {isVideoUpscaler ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Target resolution
+                  </label>
+                  <select
+                    value={videoUpscaleResolution}
+                    onChange={(event) =>
+                      setVideoUpscaleResolution(
+                        event.target.value as "1080p" | "2k" | "4k"
+                      )
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    <option value="1080p">1080p</option>
+                    <option value="2k">2K</option>
+                    <option value="4k">4K</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Target FPS
+                  </label>
+                  <select
+                    value={videoUpscaleFps}
+                    onChange={(event) =>
+                      setVideoUpscaleFps(event.target.value as "30fps" | "60fps")
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    <option value="30fps">30 fps</option>
+                    <option value="60fps">60 fps</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   Upscale factor
@@ -1457,7 +1509,7 @@ export default function ControlsPane() {
                   <option value="8">8x</option>
                 </select>
               </div>
-            ) : null}
+            )}
           </div>
         ) : null}
       </div>

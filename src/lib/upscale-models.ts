@@ -3,6 +3,8 @@ import type { ModelProvider, TaskPollingConfig } from "./providers";
 export type UpscaleJob = {
   sourceUrl: string;
   upscaleFactor?: string;
+  targetResolution?: "1080p" | "2k" | "4k";
+  targetFps?: "30fps" | "60fps";
 };
 
 export type UpscaleModelSpec = {
@@ -22,11 +24,10 @@ export const UPSCALE_MODELS: UpscaleModelSpec[] = [
     endpoint: "fal-ai/bytedance-upscaler/upscale/video",
     provider: "fal",
     pricing: "$0.04/sec (video)",
-    mapInput: ({ sourceUrl, upscaleFactor }) => ({
+    mapInput: ({ sourceUrl, targetResolution, targetFps }) => ({
       video_url: sourceUrl,
-      target_resolution: "1080p",
-      target_fps: "30fps",
-      ...(upscaleFactor ? { upscale_factor: upscaleFactor } : {}),
+      target_resolution: targetResolution ?? "1080p",
+      target_fps: targetFps ?? "30fps",
     }),
   },
   {
