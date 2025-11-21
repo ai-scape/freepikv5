@@ -33,7 +33,6 @@ export type ImageJob = {
   safetyTolerance?: number;
   watermark?: string;
   numImages?: number;
-  aspectRatio?: string;
 };
 
 export type ImageModelSpec = {
@@ -154,61 +153,76 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
   {
     id: "nano-banana-pro-edit",
     label: "Nano Banana Pro — Edit",
-    endpoint: "fal-ai/nano-banana-pro/edit",
-    provider: "fal",
-    pricing: "$0.15/image (4K billed at 2×; ~7 runs per $1)",
+    endpoint: "/api/v1/jobs/createTask",
+    provider: "kie",
+    pricing: "$0.15/image",
+    taskConfig: {
+      statusEndpoint: "/api/v1/jobs/recordInfo",
+      statePath: "data.state",
+      successStates: ["success"],
+      failureStates: ["fail"],
+      responseDataPath: "data",
+      pollIntervalMs: 4000,
+    },
     mode: "edit",
     maxRefs: 10,
     ui: {
       aspectRatios: [
-        { value: "auto", label: "Auto" },
-        { value: "21:9", label: "21:9" },
-        { value: "16:9", label: "16:9" },
-        { value: "3:2", label: "3:2" },
-        { value: "4:3", label: "4:3" },
-        { value: "5:4", label: "5:4" },
         { value: "1:1", label: "1:1" },
-        { value: "4:5", label: "4:5" },
-        { value: "3:4", label: "3:4" },
         { value: "2:3", label: "2:3" },
+        { value: "3:2", label: "3:2" },
+        { value: "3:4", label: "3:4" },
+        { value: "4:3", label: "4:3" },
+        { value: "4:5", label: "4:5" },
+        { value: "5:4", label: "5:4" },
         { value: "9:16", label: "9:16" },
+        { value: "16:9", label: "16:9" },
+        { value: "21:9", label: "21:9" },
       ],
       resolutions: [
         { value: "1K", label: "1K" },
         { value: "2K", label: "2K" },
         { value: "4K", label: "4K" },
       ],
-      maxImages: { min: 1, max: 10, default: 1 },
+      outputFormats: [
+        { value: "png", label: "PNG" },
+        { value: "jpg", label: "JPG" },
+      ],
     },
     mapInput: ({
       prompt,
       imageUrls,
       size,
-      maxImages,
       imageResolution,
       aspectRatio,
-      numImages,
+      outputFormat,
     }) => {
-      const resolvedAspect = aspectRatio ?? resolveAspectRatio(size) ?? "auto";
-      const numericMax =
-        typeof numImages === "number"
-          ? numImages
-          : typeof maxImages === "number"
-            ? maxImages
-            : undefined;
+      const resolvedAspect = aspectRatio ?? resolveAspectRatio(size);
       return {
-        prompt,
-        ...(imageUrls.length ? { image_urls: imageUrls.slice(0, 10) } : {}),
-        aspect_ratio: resolvedAspect,
-        output_format: "png",
-        ...(imageResolution ? { resolution: imageResolution } : {}),
-        ...(numericMax !== undefined ? { num_images: numericMax } : {}),
+        model: "nano-banana-pro",
+        input: {
+          prompt,
+          ...(imageUrls.length
+            ? { image_input: imageUrls.slice(0, 10) }
+            : {}),
+          ...(resolvedAspect ? { aspect_ratio: resolvedAspect } : {}),
+          ...(imageResolution ? { resolution: imageResolution } : {}),
+          output_format: outputFormat ?? "png",
+        },
       };
     },
-    getUrls: (output) =>
-      ((output as { images?: Array<{ url?: string }> })?.images ?? [])
-        .map((image) => image?.url)
-        .filter(Boolean) as string[],
+    getUrls: (output) => {
+      const resultJson = (output as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof resultJson === "string") {
+        try {
+          const parsed = JSON.parse(resultJson) as { resultUrls?: string[] };
+          return (parsed.resultUrls ?? []).filter(Boolean) as string[];
+        } catch {
+          // fall through
+        }
+      }
+      return [];
+    },
   },
   {
     id: "seedream-v4-edit",

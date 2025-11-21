@@ -1,17 +1,8 @@
 import type { ModelProvider, TaskPollingConfig } from "./providers";
 
 export type UpscaleJob = {
-  videoUrl: string;
+  sourceUrl: string;
   upscaleFactor?: string;
-  targetResolution?: "1080p" | "2k" | "4k";
-  targetFps?: "30fps" | "60fps";
-  acceleration?: "regular" | "high" | "full";
-  colorFix?: boolean;
-  quality?: number;
-  preserveAudio?: boolean;
-  outputFormat?: "X264 (.mp4)" | "VP9 (.webm)" | "PRORES4444 (.mov)" | "GIF (.gif)";
-  outputQuality?: "low" | "medium" | "high" | "maximum";
-  outputWriteMode?: "fast" | "balanced" | "small";
 };
 
 export type UpscaleModelSpec = {
@@ -26,10 +17,24 @@ export type UpscaleModelSpec = {
 
 export const UPSCALE_MODELS: UpscaleModelSpec[] = [
   {
-    id: "topaz-video-upscaler",
-    label: "Topaz Video Upscaler",
+    id: "bytedance-video-upscaler",
+    label: "ByteDance Video Upscaler",
+    endpoint: "fal-ai/bytedance-upscaler/upscale/video",
+    provider: "fal",
+    pricing: "$0.04/sec (video)",
+    mapInput: ({ sourceUrl, upscaleFactor }) => ({
+      video_url: sourceUrl,
+      target_resolution: "1080p",
+      target_fps: "30fps",
+      ...(upscaleFactor ? { upscale_factor: upscaleFactor } : {}),
+    }),
+  },
+  {
+    id: "topaz-image-upscale",
+    label: "Topaz Image Upscale",
     endpoint: "/api/v1/jobs/createTask",
     provider: "kie",
+    pricing: "$0.05/image",
     taskConfig: {
       statusEndpoint: "/api/v1/jobs/recordInfo",
       statePath: "data.state",
@@ -38,57 +43,26 @@ export const UPSCALE_MODELS: UpscaleModelSpec[] = [
       responseDataPath: "data",
       pollIntervalMs: 4000,
     },
-    mapInput: ({ videoUrl, upscaleFactor }) => ({
-      model: "topaz/video-upscale",
+    mapInput: ({ sourceUrl, upscaleFactor }) => ({
+      model: "topaz/image-upscale",
       input: {
-        video_url: videoUrl,
-        ...(upscaleFactor ? { upscale_factor: upscaleFactor } : {}),
+        image_url: sourceUrl,
+        upscale_factor:
+          upscaleFactor && ["1", "2", "4", "8"].includes(upscaleFactor)
+            ? upscaleFactor
+            : "2",
       },
     }),
   },
   {
-    id: "bytedance-video-upscaler",
-    label: "ByteDance Video Upscaler",
-    endpoint: "fal-ai/bytedance-upscaler/upscale/video",
+    id: "clarity-image-upscale",
+    label: "Clarity Upscaler",
+    endpoint: "fal-ai/clarity-upscaler",
     provider: "fal",
-    mapInput: ({ videoUrl, targetResolution, targetFps }) => {
-      return {
-        video_url: videoUrl,
-        target_resolution: targetResolution ?? "1080p",
-        target_fps: targetFps ?? "30fps",
-      };
-    },
-  },
-  {
-    id: "flashvsr-video-upscaler",
-    label: "FlashVSR Video Upscaler",
-    endpoint: "fal-ai/flashvsr/upscale/video",
-    provider: "fal",
-    mapInput: ({
-      videoUrl,
-      upscaleFactor,
-      acceleration,
-      colorFix,
-      quality,
-      preserveAudio,
-      outputFormat,
-      outputQuality,
-      outputWriteMode,
-    }) => {
-      const numericFactor = upscaleFactor ? Number(upscaleFactor) : undefined;
-      return {
-        video_url: videoUrl,
-        ...(numericFactor && Number.isFinite(numericFactor)
-          ? { upscale_factor: numericFactor }
-          : {}),
-        ...(acceleration ? { acceleration } : {}),
-        ...(colorFix !== undefined ? { color_fix: colorFix } : {}),
-        ...(quality !== undefined ? { quality } : {}),
-        ...(preserveAudio !== undefined ? { preserve_audio: preserveAudio } : {}),
-        ...(outputFormat ? { output_format: outputFormat } : {}),
-        ...(outputQuality ? { output_quality: outputQuality } : {}),
-        ...(outputWriteMode ? { output_write_mode: outputWriteMode } : {}),
-      };
-    },
+    pricing: "$0.03/image",
+    mapInput: ({ sourceUrl, upscaleFactor }) => ({
+      image_url: sourceUrl,
+      ...(upscaleFactor ? { upscale_factor: Number(upscaleFactor) } : {}),
+    }),
   },
 ];

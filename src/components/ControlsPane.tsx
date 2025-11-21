@@ -44,6 +44,7 @@ function formatDateFolder(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+
 type UploadSlot = {
   url?: string;
   preview?: string;
@@ -100,25 +101,6 @@ export default function ControlsPane() {
   });
   const [isUpscaleDragActive, setIsUpscaleDragActive] = useState(false);
   const [upscaleFactor, setUpscaleFactor] = useState("2");
-  const [byteDanceResolution, setByteDanceResolution] = useState<
-    "1080p" | "2k" | "4k"
-  >("1080p");
-  const [byteDanceFps, setByteDanceFps] = useState<"30fps" | "60fps">("30fps");
-  const [flashAcceleration, setFlashAcceleration] = useState<
-    "regular" | "high" | "full"
-  >("regular");
-  const [flashColorFix, setFlashColorFix] = useState(true);
-  const [flashQuality, setFlashQuality] = useState("70");
-  const [flashPreserveAudio, setFlashPreserveAudio] = useState(false);
-  const [flashOutputFormat, setFlashOutputFormat] = useState<
-    "X264 (.mp4)" | "VP9 (.webm)" | "PRORES4444 (.mov)" | "GIF (.gif)"
-  >("X264 (.mp4)");
-  const [flashOutputQuality, setFlashOutputQuality] = useState<
-    "low" | "medium" | "high" | "maximum"
-  >("high");
-  const [flashOutputWriteMode, setFlashOutputWriteMode] = useState<
-    "fast" | "balanced" | "small"
-  >("balanced");
 
   const startInputRef = useRef<HTMLInputElement | null>(null);
   const endInputRef = useRef<HTMLInputElement | null>(null);
@@ -413,11 +395,8 @@ export default function ControlsPane() {
     modelKind === "image" && selectedImage?.requireReference === true;
   const isMissingImageReference =
     imageRequiresReference && imageReferenceUrls.length === 0;
-  const isByteDanceUpscale = selectedUpscale?.id === "bytedance-video-upscaler";
-  const isFlashUpscale = selectedUpscale?.id === "flashvsr-video-upscaler";
-  const showUpscaleFactor = selectedUpscale
-    ? !isByteDanceUpscale
-    : true;
+  const isVideoUpscaler = selectedUpscale?.id === "bytedance-video-upscaler";
+  const showUpscaleFactor = selectedUpscale ? !isVideoUpscaler : true;
 
   const handleUpscaleSourceSelect = useCallback(
     async (file: File | null) => {
@@ -435,6 +414,9 @@ export default function ControlsPane() {
         name: file.name,
       });
       try {
+        if (!file.type.startsWith("image/") && !(isVideoUpscaler && file.type.startsWith("video/"))) {
+          throw new Error("Please upload a valid file for this upscaler.");
+        }
         const url = await uploadToFal(file);
         setUpscaleSource((prev) => ({
           ...prev,
@@ -450,7 +432,7 @@ export default function ControlsPane() {
         }));
       }
     },
-    [registerPreview, releasePreview]
+    [isVideoUpscaler, registerPreview, releasePreview]
   );
 
   const handleStartFrameDrop = useCallback(
@@ -769,42 +751,22 @@ export default function ControlsPane() {
           : undefined;
       } else if (modelKind === "upscale" && selectedUpscale) {
         if (!upscaleSource.url) {
-          throw new Error("Upload a source video to upscale.");
+          throw new Error(
+            isVideoUpscaler
+              ? "Upload a source video to upscale."
+              : "Upload a source image to upscale."
+          );
         }
 
-        const flashQualityNumber =
-          flashQuality.trim() === "" ? undefined : Number(flashQuality);
-        const normalizedQuality =
-          flashQualityNumber === undefined || Number.isNaN(flashQualityNumber)
-            ? undefined
-            : Math.min(100, Math.max(0, flashQualityNumber));
-
         const job: UpscaleJob = {
-          videoUrl: upscaleSource.url,
+          sourceUrl: upscaleSource.url,
           ...(showUpscaleFactor ? { upscaleFactor } : {}),
-          ...(isByteDanceUpscale
-            ? {
-              targetResolution: byteDanceResolution,
-              targetFps: byteDanceFps,
-            }
-            : {}),
-          ...(isFlashUpscale
-            ? {
-              acceleration: flashAcceleration,
-              colorFix: flashColorFix,
-              quality: normalizedQuality,
-              preserveAudio: flashPreserveAudio,
-              outputFormat: flashOutputFormat,
-              outputQuality: flashOutputQuality,
-              outputWriteMode: flashOutputWriteMode,
-            }
-            : {}),
         };
 
         endpoint = selectedUpscale.endpoint;
         payload = selectedUpscale.mapInput(job);
         modelId = selectedUpscale.id;
-        category = "video";
+        category = isVideoUpscaler ? "video" : "image";
         provider = selectedUpscale.provider ?? "kie";
         callOptions = selectedUpscale.taskConfig
           ? { taskConfig: selectedUpscale.taskConfig }
@@ -1398,7 +1360,7 @@ export default function ControlsPane() {
           <div className="space-y-3">
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Source video (required)
+                Source file (required)
               </label>
               <div
                 className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isUpscaleDragActive
@@ -1425,7 +1387,9 @@ export default function ControlsPane() {
                       event.dataTransfer
                     );
                     const file = files.find((candidate) =>
-                      candidate.type.startsWith("video/")
+                      isVideoUpscaler
+                        ? candidate.type.startsWith("video/")
+                        : candidate.type.startsWith("image/")
                     );
                     void handleUpscaleSourceSelect(file ?? null);
                   })();
@@ -1434,7 +1398,7 @@ export default function ControlsPane() {
                 <input
                   ref={upscaleInputRef}
                   type="file"
-                  accept="video/*"
+                  accept={isVideoUpscaler ? "video/*" : "image/*"}
                   className="hidden"
                   onChange={(event: ChangeEvent<HTMLInputElement>) => {
                     const file = event.target.files?.[0] ?? null;
@@ -1446,7 +1410,7 @@ export default function ControlsPane() {
                   {upscaleSource.preview || upscaleSource.name ? (
                     <div className="text-center">
                       <p className="mb-2 font-semibold text-emerald-400">
-                        Video Selected
+                        {isVideoUpscaler ? "Video Selected" : "Image Selected"}
                       </p>
                       <p className="truncate max-w-[200px] text-slate-300">
                         {upscaleSource.name}
@@ -1461,13 +1425,16 @@ export default function ControlsPane() {
                     </div>
                   ) : (
                     <>
-                      <p className="mb-3">Drag & drop video or click browse</p>
+                      <p className="mb-3">
+                        Drag & drop {isVideoUpscaler ? "video" : "image"} or
+                        click browse
+                      </p>
                       <button
                         type="button"
                         className="rounded-full border border-white/20 px-4 py-1.5 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
                         onClick={() => upscaleInputRef.current?.click()}
                       >
-                        Browse Video
+                        {isVideoUpscaler ? "Browse Video" : "Browse Image"}
                       </button>
                     </>
                   )}
@@ -1487,168 +1454,8 @@ export default function ControlsPane() {
                   <option value="1">1x</option>
                   <option value="2">2x</option>
                   <option value="4">4x</option>
+                  <option value="8">8x</option>
                 </select>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Target resolution
-                  </label>
-                  <select
-                    value={byteDanceResolution}
-                    onChange={(event) =>
-                      setByteDanceResolution(
-                        event.target.value as "1080p" | "2k" | "4k"
-                      )
-                    }
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                  >
-                    <option value="1080p">1080p</option>
-                    <option value="2k">2K</option>
-                    <option value="4k">4K</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Target FPS
-                  </label>
-                  <select
-                    value={byteDanceFps}
-                    onChange={(event) =>
-                      setByteDanceFps(event.target.value as "30fps" | "60fps")
-                    }
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                  >
-                    <option value="30fps">30 fps</option>
-                    <option value="60fps">60 fps</option>
-                  </select>
-                </div>
-              </div>
-            )}
-            {isFlashUpscale ? (
-              <div className="space-y-3 rounded-2xl border border-white/10 p-3">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Acceleration
-                    </label>
-                    <select
-                      value={flashAcceleration}
-                      onChange={(event) =>
-                        setFlashAcceleration(
-                          event.target.value as "regular" | "high" | "full"
-                        )
-                      }
-                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                    >
-                      <option value="regular">Regular (best quality)</option>
-                      <option value="high">High</option>
-                      <option value="full">Full (fastest)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Quality (0-100)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={flashQuality}
-                      onChange={(event) => setFlashQuality(event.target.value)}
-                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Output format
-                    </label>
-                    <select
-                      value={flashOutputFormat}
-                      onChange={(event) =>
-                        setFlashOutputFormat(
-                          event.target.value as
-                          | "X264 (.mp4)"
-                          | "VP9 (.webm)"
-                          | "PRORES4444 (.mov)"
-                          | "GIF (.gif)"
-                        )
-                      }
-                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                    >
-                      <option value="X264 (.mp4)">X264 (.mp4)</option>
-                      <option value="VP9 (.webm)">VP9 (.webm)</option>
-                      <option value="PRORES4444 (.mov)">PRORES4444 (.mov)</option>
-                      <option value="GIF (.gif)">GIF (.gif)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Output quality
-                    </label>
-                    <select
-                      value={flashOutputQuality}
-                      onChange={(event) =>
-                        setFlashOutputQuality(
-                          event.target.value as
-                          | "low"
-                          | "medium"
-                          | "high"
-                          | "maximum"
-                        )
-                      }
-                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="maximum">Maximum</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Output write mode
-                    </label>
-                    <select
-                      value={flashOutputWriteMode}
-                      onChange={(event) =>
-                        setFlashOutputWriteMode(
-                          event.target.value as "fast" | "balanced" | "small"
-                        )
-                      }
-                      className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                    >
-                      <option value="balanced">Balanced</option>
-                      <option value="fast">Fast</option>
-                      <option value="small">Small</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col justify-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={flashColorFix}
-                        onChange={(event) => setFlashColorFix(event.target.checked)}
-                      />
-                      Color fix
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={flashPreserveAudio}
-                        onChange={(event) =>
-                          setFlashPreserveAudio(event.target.checked)
-                        }
-                      />
-                      Preserve audio
-                    </label>
-                  </div>
-                </div>
               </div>
             ) : null}
           </div>
