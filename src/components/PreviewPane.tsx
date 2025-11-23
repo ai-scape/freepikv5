@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCatalog } from "../state/useCatalog";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { getFileUrl, uploadFile } from "../lib/api/files";
+import ImageComparer from "./ImageComparer";
 
 function formatBytes(size: number) {
   if (size < 1024) return `${size} B`;
@@ -36,6 +37,9 @@ export default function PreviewPane() {
     { value: "16:9", label: "16:9" },
     { value: "9:16", label: "9:16" },
   ] as const;
+
+  const [mode, setMode] = useState<"preview" | "compare">("preview");
+
   const handleDragStart = (event: React.DragEvent) => {
     if (!selected || selected.kind !== "file" || !connection) return;
     event.dataTransfer.setData(
@@ -336,18 +340,68 @@ export default function PreviewPane() {
     setLoading(false);
   }, [connection, selected]);
 
+
+
   if (!connection) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="max-w-xs rounded-lg border border-dashed border-white/20 bg-gradient-to-br from-sky-500/5 to-indigo-500/5 p-6 text-center text-sm">
-          <div className="mb-3 text-4xl">👁️</div>
-          <div className="mb-2 font-semibold text-sky-200">
-            Preview Panel
-          </div>
-          <div className="text-slate-300">
-            Connect a workspace first, then click any file to preview it here.
-          </div>
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2">
+          <button
+            onClick={() => setMode("preview")}
+            className={`px-4 py-2 text-xs font-semibold transition-colors ${mode === "preview"
+              ? "border-b-2 border-sky-500 text-white"
+              : "text-slate-400 hover:text-white"
+              }`}
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => setMode("compare")}
+            className={`px-4 py-2 text-xs font-semibold transition-colors ${mode === "compare"
+              ? "border-b-2 border-sky-500 text-white"
+              : "text-slate-400 hover:text-white"
+              }`}
+          >
+            Compare
+          </button>
         </div>
+        {mode === "compare" ? (
+          <ImageComparer />
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="max-w-xs rounded-lg border border-dashed border-white/20 bg-gradient-to-br from-sky-500/5 to-indigo-500/5 p-6 text-center text-sm">
+              <div className="mb-3 text-4xl">👁️</div>
+              <div className="mb-2 font-semibold text-sky-200">
+                Preview Panel
+              </div>
+              <div className="text-slate-300">
+                Connect a workspace first, then click any file to preview it here.
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (mode === "compare") {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2">
+          <button
+            onClick={() => setMode("preview")}
+            className="px-4 py-2 text-xs font-semibold transition-colors text-slate-400 hover:text-white"
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => setMode("compare")}
+            className="px-4 py-2 text-xs font-semibold transition-colors border-b-2 border-sky-500 text-white"
+          >
+            Compare
+          </button>
+        </div>
+        <ImageComparer />
       </div>
     );
   }
@@ -385,149 +439,165 @@ export default function PreviewPane() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-base font-semibold text-white">
-            {selected.name}
-          </div>
-          <div className="text-xs text-slate-400">{selected.relPath}</div>
-        </div>
-        <div className="text-right text-xs text-slate-400">
-          <div>{formatBytes(selected.size)}</div>
-          <div>{formatDate(selected.mtime)}</div>
-        </div>
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2 mb-3 shrink-0">
+        <button
+          onClick={() => setMode("preview")}
+          className="px-4 py-2 text-xs font-semibold transition-colors border-b-2 border-sky-500 text-white"
+        >
+          Preview
+        </button>
+        <button
+          onClick={() => setMode("compare")}
+          className="px-4 py-2 text-xs font-semibold transition-colors text-slate-400 hover:text-white"
+        >
+          Compare
+        </button>
       </div>
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto min-h-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-base font-semibold text-white">
+              {selected.name}
+            </div>
+            <div className="text-xs text-slate-400">{selected.relPath}</div>
+          </div>
+          <div className="text-right text-xs text-slate-400">
+            <div>{formatBytes(selected.size)}</div>
+            <div>{formatDate(selected.mtime)}</div>
+          </div>
+        </div>
 
-      <div className="flex-1 rounded-2xl border border-white/10 bg-black/30 p-4">
-        {error ? (
-          <div className="text-sm text-rose-300">{error}</div>
-        ) : loading || !previewUrl ? (
-          <div className="text-sm text-slate-400">Loading preview…</div>
-        ) : selected.mime.startsWith("video") ? (
-          <video
-            key={previewUrl}
-            ref={videoRef}
-            src={previewUrl}
-            crossOrigin="anonymous"
-            controls
-            draggable={selected.kind === "file"}
-            onDragStart={handleDragStart}
-            onLoadedMetadata={handleMetadataLoaded}
-            onDurationChange={handleMetadataLoaded}
-            className="h-full w-full rounded-xl border border-white/10 bg-black object-contain"
-          />
-        ) : (
-          <img
-            src={previewUrl}
-            alt={selected.name}
-            draggable={selected.kind === "file"}
-            onDragStart={handleDragStart}
-            className="h-full w-full rounded-xl border border-white/10 object-contain"
-          />
-        )}
+        <div className="flex-1 rounded-2xl border border-white/10 bg-black/30 p-4">
+          {error ? (
+            <div className="text-sm text-rose-300">{error}</div>
+          ) : loading || !previewUrl ? (
+            <div className="text-sm text-slate-400">Loading preview…</div>
+          ) : selected.mime.startsWith("video") ? (
+            <video
+              key={previewUrl}
+              ref={videoRef}
+              src={previewUrl}
+              crossOrigin="anonymous"
+              controls
+              draggable={selected.kind === "file"}
+              onDragStart={handleDragStart}
+              onLoadedMetadata={handleMetadataLoaded}
+              onDurationChange={handleMetadataLoaded}
+              className="h-full w-full rounded-xl border border-white/10 bg-black object-contain"
+            />
+          ) : (
+            <img
+              src={previewUrl}
+              alt={selected.name}
+              draggable={selected.kind === "file"}
+              onDragStart={handleDragStart}
+              className="h-full w-full rounded-xl border border-white/10 object-contain"
+            />
+          )}
+        </div>
+
+        {selected && selected.mime.startsWith("video") ? (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-200">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-white">Frame extraction</span>
+              <span className="text-[11px] text-slate-400">
+                Scrub to any time, then capture a PNG.
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!canCapture || captureBusy}
+                onClick={() => void captureFrame(undefined, "Extracting current frame…")}
+                className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {captureBusy ? "Working…" : "Extract current frame"}
+              </button>
+              <button
+                type="button"
+                disabled={!canCapture || captureBusy}
+                onClick={() => void captureFrame(0, "Extracting start frame…")}
+                className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Save start frame
+              </button>
+              <button
+                type="button"
+                disabled={!canCapture || captureBusy || !videoDuration}
+                onClick={() => {
+                  const endTime =
+                    videoDuration ??
+                    (videoRef.current?.duration && Number.isFinite(videoRef.current.duration)
+                      ? videoRef.current.duration
+                      : 0);
+                  void captureFrame(Math.max(endTime - 0.001, 0), "Extracting end frame…");
+                }}
+                className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Save end frame
+              </button>
+            </div>
+            {captureStatus ? (
+              <div className="mt-2 rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px]">
+                {captureStatus}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {previewUrl ? (
+          <div className="flex gap-2">
+            <a
+              href={previewUrl}
+              download={selected.name}
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
+            >
+              Download
+            </a>
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
+            >
+              Open in New Tab
+            </a>
+          </div>
+        ) : null}
+
+        {selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
+          <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-semibold text-white">Center crop</span>
+              <select
+                value={cropAspect}
+                onChange={(event) => setCropAspect(event.target.value)}
+                className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+              >
+                {cropPresets.map((preset) => (
+                  <option key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={cropBusy}
+                onClick={() => void handleCropDownload()}
+                className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cropBusy ? "Cropping…" : "Download cropped"}
+              </button>
+            </div>
+            {cropStatus ? (
+              <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
+                {cropStatus}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-
-      {selected && selected.mime.startsWith("video") ? (
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-200">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-white">Frame extraction</span>
-            <span className="text-[11px] text-slate-400">
-              Scrub to any time, then capture a PNG.
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={!canCapture || captureBusy}
-              onClick={() => void captureFrame(undefined, "Extracting current frame…")}
-              className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {captureBusy ? "Working…" : "Extract current frame"}
-            </button>
-            <button
-              type="button"
-              disabled={!canCapture || captureBusy}
-              onClick={() => void captureFrame(0, "Extracting start frame…")}
-              className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Save start frame
-            </button>
-            <button
-              type="button"
-              disabled={!canCapture || captureBusy || !videoDuration}
-              onClick={() => {
-                const endTime =
-                  videoDuration ??
-                  (videoRef.current?.duration && Number.isFinite(videoRef.current.duration)
-                    ? videoRef.current.duration
-                    : 0);
-                void captureFrame(Math.max(endTime - 0.001, 0), "Extracting end frame…");
-              }}
-              className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Save end frame
-            </button>
-          </div>
-          {captureStatus ? (
-            <div className="mt-2 rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px]">
-              {captureStatus}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {previewUrl ? (
-        <div className="flex gap-2">
-          <a
-            href={previewUrl}
-            download={selected.name}
-            className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
-          >
-            Download
-          </a>
-          <a
-            href={previewUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
-          >
-            Open in New Tab
-          </a>
-        </div>
-      ) : null}
-
-      {selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-semibold text-white">Center crop</span>
-            <select
-              value={cropAspect}
-              onChange={(event) => setCropAspect(event.target.value)}
-              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-            >
-              {cropPresets.map((preset) => (
-                <option key={preset.value} value={preset.value}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={cropBusy}
-              onClick={() => void handleCropDownload()}
-              className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {cropBusy ? "Cropping…" : "Download cropped"}
-            </button>
-          </div>
-          {cropStatus ? (
-            <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
-              {cropStatus}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
