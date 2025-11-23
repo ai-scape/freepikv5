@@ -89,6 +89,7 @@ For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
 ### ✅ **Workspace Storage** - Files organized on the server (`images/YYYY-MM-DD`, `videos/YYYY-MM-DD`)
 ### ✅ **20+ AI Models** - Video, image, and upscaling models included
 ### ✅ **Smart Controls** - UI automatically adapts to each model's parameters
+### ✅ **Smart Processing** - Automatically handles video resizing for model compatibility
 ### ✅ **Built-in Browser** - Browse, preview, and search your generated files
 ### ✅ **Persistent** - Workspace and token are remembered between sessions
 

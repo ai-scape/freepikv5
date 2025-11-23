@@ -39,6 +39,7 @@ import { downloadBlob } from "../lib/providers/shared";
 import {
   fetchFileBlob,
   uploadFile,
+  authHeaders,
 } from "../lib/api/files";
 
 function formatDateFolder(date: Date) {
@@ -459,7 +460,7 @@ export default function ControlsPane() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const { authHeaders } = await import("../lib/api/files");
+
             const response = await fetch(`${connection.apiBase}/resize-video`, {
               method: "POST",
               headers: authHeaders(connection.token),

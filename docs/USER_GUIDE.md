@@ -102,7 +102,10 @@ Make your videos higher quality:
    - Upscale factor (2x or 4x)
    - Target resolution (1080p, 2K, or 4K)
    - Output format (MP4, WebM, etc.)
-4. **Click Generate** ⬆️
+105: 4. **Click Generate** ⬆️
+106: 
+107: **Note about ByteDance Upscaler:**
+108: This model requires input videos to be 1080p or smaller. If you upload a larger video (e.g., 4K), the app will automatically resize it for you before upscaling. You'll see a "Resizing..." status message during this process.
 
 ## 💡 Tips & Tricks
 

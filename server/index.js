@@ -401,17 +401,15 @@ server.post("/resize-video", async (request, reply) => {
 
     const stats = await fs.stat(tempOutput);
     const stream = createReadStream(tempOutput);
+    stream.on("close", () => {
+      fs.unlink(tempOutput).catch(() => { });
+    });
+
     reply.header("Content-Type", "video/mp4");
     reply.header("Content-Length", stats.size);
 
     // Cleanup input immediately
     await fs.unlink(tempInput).catch(() => { });
-
-    // Cleanup output after stream ends (hook into reply)
-    // For simplicity in this dev server, we'll just leave it or use a timeout?
-    // Let's just unlink input. Output might accumulate if we don't clean up.
-    // We can use a "on-end" hook on the stream if we wrap it.
-    // But for now, let's just return the stream.
 
     return reply.send(stream);
 
