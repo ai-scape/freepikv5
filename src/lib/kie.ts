@@ -80,7 +80,7 @@ export async function callKie(
   const bytesBlob = blobFromBytes(
     data?.bytes ?? (data?.data as { bytes?: unknown })?.bytes,
     (data?.mime as string | undefined) ??
-      ((data?.data as { mime?: string })?.mime ?? "application/octet-stream")
+    ((data?.data as { mime?: string })?.mime ?? "application/octet-stream")
   );
   if (bytesBlob) {
     return { blob: bytesBlob };
@@ -124,6 +124,13 @@ export async function callKie(
     );
     if (taskBytes) {
       return { blob: taskBytes };
+    }
+
+    const logger = options?.log;
+    if (typeof logger === "function") {
+      logger(`KIE finalData: ${JSON.stringify(finalData, null, 2)}`);
+    } else {
+      console.log("KIE finalData:", JSON.stringify(finalData, null, 2));
     }
 
     throw new Error("KIE task completed without a downloadable asset.");

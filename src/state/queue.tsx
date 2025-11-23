@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
     createContext,
     useCallback,
@@ -7,28 +8,15 @@ import {
     useState,
     type ReactNode,
 } from "react";
-
-export type QueueJobStatus = "pending" | "processing" | "completed" | "failed";
-
-export type QueueJob = {
-    id: string;
-    status: QueueJobStatus;
-    type: "image" | "video" | "upscale";
-    name: string; // Display name (e.g. prompt snippet or file name)
-    payload: any; // The data needed to run the job
-    result?: any; // The result (e.g. URL)
-    error?: string;
-    timestamp: number;
-    logs: string[];
-};
+import type { QueueJob } from "./queueTypes";
 
 type QueueContextType = {
     jobs: QueueJob[];
     addJob: (
         type: QueueJob["type"],
         name: string,
-        payload: any,
-        processor: (payload: any, log: (msg: string) => void) => Promise<any>
+        payload: unknown,
+        processor: (payload: unknown, log: (msg: string) => void) => Promise<unknown>
     ) => void;
     retryJob: (id: string) => void;
     clearCompleted: () => void;
@@ -44,7 +32,7 @@ const CONCURRENCY_LIMIT = 2;
 export function QueueProvider({ children }: { children: ReactNode }) {
     const [jobs, setJobs] = useState<QueueJob[]>([]);
     const [processors, setProcessors] = useState<
-        Record<string, (payload: any, log: (msg: string) => void) => Promise<any>>
+        Record<string, (payload: unknown, log: (msg: string) => void) => Promise<unknown>>
     >({});
     const [isLogOpen, setIsLogOpen] = useState(false);
 
@@ -52,8 +40,8 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         (
             type: QueueJob["type"],
             name: string,
-            payload: any,
-            processor: (payload: any, log: (msg: string) => void) => Promise<any>
+            payload: unknown,
+            processor: (payload: unknown, log: (msg: string) => void) => Promise<unknown>
         ) => {
             const id = crypto.randomUUID();
             setProcessors((prev) => ({ ...prev, [id]: processor }));
@@ -138,7 +126,10 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                 )
             );
 
+            const localLogs: string[] = [...nextJob.logs];
             const log = (msg: string) => {
+                console.log(`[Queue] ${msg}`);
+                localLogs.push(msg);
                 setJobs((prev) =>
                     prev.map((j) =>
                         j.id === nextJob.id ? { ...j, logs: [...j.logs, msg] } : j
@@ -161,8 +152,19 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                             : j
                     )
                 );
+                // Auto-fade after 10 seconds
+                setTimeout(() => {
+                    setJobs((prev) => prev.filter((j) => j.id !== nextJob.id));
+                    setProcessors((prev) => {
+                        const next = { ...prev };
+                        delete next[nextJob.id];
+                        return next;
+                    });
+                }, 10000);
             } catch (error) {
                 const msg = error instanceof Error ? error.message : "Unknown error";
+                localLogs.push(`Failed: ${msg}`);
+
                 setJobs((prev) =>
                     prev.map((j) =>
                         j.id === nextJob.id
@@ -175,6 +177,33 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                             : j
                     )
                 );
+
+                // Log to server
+                try {
+                    // Assuming connection info is in payload or we can just hit the local server
+                    // The local server is always at http://localhost:8787 (or env)
+                    // But we might not have the URL here easily if it's dynamic.
+                    // However, we can try the default or extract from payload if available.
+                    // Let's assume standard local dev port for now or try to use payload.connection.apiBase
+                    const payload = nextJob.payload as { connection?: { apiBase?: string } };
+                    const apiBase = payload?.connection?.apiBase || "http://localhost:8787";
+                    await fetch(new URL("/log", apiBase).toString(), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            level: "error",
+                            message: `Job ${nextJob.id} failed`,
+                            data: {
+                                jobId: nextJob.id,
+                                type: nextJob.type,
+                                error: msg,
+                                logs: localLogs
+                            }
+                        })
+                    });
+                } catch (e) {
+                    console.error("Failed to log error to server", e);
+                }
             }
         };
 

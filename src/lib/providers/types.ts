@@ -58,4 +58,5 @@ export type TaskPollingConfig = {
 
 export type ProviderCallOptions = {
   taskConfig?: TaskPollingConfig;
+  log?: (message: string) => void;
 };

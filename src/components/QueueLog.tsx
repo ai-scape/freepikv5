@@ -2,7 +2,7 @@ import { useQueue } from "../state/queue";
 import { Spinner } from "./ui/Spinner";
 
 export default function QueueLog() {
-    const { jobs, isLogOpen, toggleLog, clearCompleted, removeJob, retryJob } = useQueue();
+    const { jobs, isLogOpen, toggleLog, removeJob, retryJob } = useQueue();
 
     if (!isLogOpen) return null;
 
@@ -11,12 +11,6 @@ export default function QueueLog() {
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                 <h3 className="font-semibold text-sm text-white">Generation Queue</h3>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={clearCompleted}
-                        className="text-xs text-slate-400 hover:text-white"
-                    >
-                        Clear Done
-                    </button>
                     <button
                         onClick={toggleLog}
                         className="text-slate-400 hover:text-white"

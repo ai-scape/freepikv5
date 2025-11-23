@@ -44,6 +44,7 @@ await server.register(multipart, {
 });
 
 server.addHook("onRequest", async (request, reply) => {
+  if (request.url.startsWith("/log")) return;
   if (!API_TOKEN) return;
   const auth = request.headers.authorization;
   const expected = `Bearer ${API_TOKEN}`;
@@ -418,6 +419,20 @@ server.post("/resize-video", async (request, reply) => {
     await fs.unlink(tempInput).catch(() => { });
     await fs.unlink(tempOutput).catch(() => { });
     return reply.code(500).send({ error: error.message ?? "Resize failed" });
+  }
+});
+
+server.post("/log", async (request, reply) => {
+  const { message, level = "info", data } = request.body ?? {};
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] [${level.toUpperCase()}] ${message} ${data ? JSON.stringify(data) : ""}\n`;
+
+  try {
+    await fs.appendFile(path.join(process.cwd(), "debug.log"), logEntry);
+    return { ok: true };
+  } catch (error) {
+    request.log.error(error);
+    return reply.code(500).send({ error: "Failed to write log" });
   }
 });
 

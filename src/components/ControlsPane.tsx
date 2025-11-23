@@ -15,10 +15,8 @@ import {
 } from "../lib/models";
 import {
   IMAGE_MODELS,
-  type ImageJob,
 } from "../lib/image-models";
 import {
-  type UpscaleJob,
   UPSCALE_MODELS,
 } from "../lib/upscale-models";
 import { getModelPricingLabel } from "../lib/pricing";
@@ -40,6 +38,7 @@ import {
   fetchFileBlob,
   uploadFile,
   authHeaders,
+  type WorkspaceConnection,
 } from "../lib/api/files";
 import { useQueue } from "../state/queue";
 
@@ -47,6 +46,8 @@ function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
+
+
 
 
 type UploadSlot = {
@@ -97,6 +98,7 @@ export default function ControlsPane() {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [imageResolution, setImageResolution] = useState("1K");
   const [status, setStatus] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // const [busy, setBusy] = useState(false);
   const [isStartDragActive, setIsStartDragActive] = useState(false);
   const [isEndDragActive, setIsEndDragActive] = useState(false);
@@ -202,12 +204,6 @@ export default function ControlsPane() {
     setVideoUpscaleResolution("1080p");
     setVideoUpscaleFps("30fps");
   }, [selectedUpscale?.id]);
-
-  const parseSeed = () => {
-    if (!seed.trim()) return undefined;
-    const numeric = Number(seed);
-    return Number.isNaN(numeric) ? undefined : numeric;
-  };
 
   const extractFilesFromDataTransfer = useCallback(
     async (dataTransfer: DataTransfer | null): Promise<File[]> => {
@@ -416,10 +412,7 @@ export default function ControlsPane() {
       ? uploadedReferenceUrls
       : [];
 
-  const videoReferenceUrls =
-    modelKind === "video" && videoReferenceConfig
-      ? uploadedReferenceUrls
-      : [];
+
   const imageRequiresReference =
     modelKind === "image" && selectedImage?.requireReference === true;
   const isMissingImageReference =
@@ -695,126 +688,75 @@ export default function ControlsPane() {
     );
   };
 
+
   const handleGenerate = async (event: FormEvent) => {
     event.preventDefault();
-    if (!connection) {
-      setStatus("Connect a workspace before generating.");
-      return;
-    }
-    if (modelKind !== "upscale" && !prompt.trim()) {
-      setStatus("Prompt is required.");
-      return;
-    }
-    if (pendingUploads) {
-      setStatus("Uploads in progress. Please wait until they complete.");
-      return;
-    }
-    // setBusy(true); // No longer blocking
-    setStatus("Queuing job...");
+    setIsSubmitting(true);
+
+    // Artificial delay for UX
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
     try {
-      let endpoint: string | undefined;
-      let payload: Record<string, unknown> | undefined;
-      let modelId: string | undefined;
-      let category: "image" | "video" | undefined;
+      const modelId = modelKey.replace(/^(image:|video:|upscale:)/, "");
+      const modelSpec = MODEL_SPECS.find((m) => m.id === modelId);
+      const imageModelSpec = IMAGE_MODELS.find((m) => m.id === modelId);
+      const upscaleModelSpec = UPSCALE_MODELS.find((m) => m.id === modelId);
+
+      let endpoint = "";
+      let category: "image" | "video" = "image";
       let provider: ModelProvider = "fal";
+      let isUpscale = false;
+      let payload: Record<string, unknown> | undefined;
+
       let callOptions: ProviderCallOptions | undefined;
 
-      if (modelKind === "video" && selectedVideo) {
-        if (supportsStartFrame && !startFrame.url) {
-          throw new Error("Start frame is required.");
-        }
-        if (
-          videoReferenceConfig?.min &&
-          videoReferenceUrls.length < videoReferenceConfig.min
-        ) {
-          throw new Error(
-            `Add at least ${videoReferenceConfig.min} reference image${videoReferenceConfig.min === 1 ? "" : "s"
-            }.`
-          );
-        }
-
-        const unified: UnifiedPayload = {
-          modelId: selectedVideo.id,
-          prompt: prompt.trim(),
-        };
-        if (supportsStartFrame && startFrame.url) {
-          unified.start_frame_url = startFrame.url;
-        }
-
-        if (supportsEndFrame && endFrame.url) {
-          unified.end_frame_url = endFrame.url;
-        }
-
-        Object.entries(selectedVideo.params).forEach(([key, definition]) => {
-          if (!definition) return;
-          const uiKey =
-            definition.uiKey ??
-            (key as keyof UnifiedPayload);
-          if (
-            uiKey === "prompt" ||
-            uiKey === "start_frame_url" ||
-            uiKey === "end_frame_url"
-          ) {
-            return;
-          }
-          const rawValue = paramValues[uiKey as string];
-          if (rawValue === undefined || rawValue === "") {
-            if (definition.default !== undefined) {
-              (unified as Record<string, unknown>)[uiKey as string] =
-                definition.default;
-            }
-            return;
-          }
-          (unified as Record<string, unknown>)[uiKey as string] = rawValue;
-        });
-
-        if (videoReferenceUrls.length) {
-          unified.reference_image_urls = videoReferenceUrls;
-        }
-
-        const parsedSeed = parseSeed();
-        if (parsedSeed !== undefined) {
-          unified.seed = parsedSeed;
-        }
-
-        endpoint = selectedVideo.endpoint;
-        payload = buildModelInput(selectedVideo, unified);
-        modelId = selectedVideo.id;
+      if (modelSpec) {
+        endpoint = modelSpec.endpoint;
         category = "video";
-        provider = selectedVideo.provider ?? "fal";
-        callOptions = selectedVideo.taskConfig
-          ? { taskConfig: selectedVideo.taskConfig }
-          : undefined;
-      } else if (modelKind === "image" && selectedImage) {
-        if (selectedImage.requireReference && imageReferenceUrls.length === 0) {
-          throw new Error("Add at least one reference image.");
-        }
+        provider = modelSpec.provider ?? "fal";
+        callOptions = modelSpec.taskConfig ? { taskConfig: modelSpec.taskConfig } : undefined;
 
-        const maxImagesConfig = selectedImage.ui?.maxImages;
+        const unifiedPayload: UnifiedPayload = {
+          modelId,
+          prompt,
+          aspect_ratio: aspectRatio,
+          resolution: imageResolution,
+          start_frame_url: startFrame.url,
+          end_frame_url: endFrame.url,
+          reference_image_urls: referenceUploads.map(r => r.url).filter(Boolean) as string[],
+          seed: seed ? parseInt(seed, 10) : undefined,
+        };
+
+        payload = buildModelInput(modelSpec, unifiedPayload);
+      } else if (imageModelSpec) {
+        endpoint = imageModelSpec.endpoint;
+        category = "image";
+        provider = imageModelSpec.provider ?? "fal";
+        callOptions = imageModelSpec.taskConfig ? { taskConfig: imageModelSpec.taskConfig } : undefined;
+
+        const maxImagesConfig = imageModelSpec.ui?.maxImages;
         const parsedMaxImages = maxImagesConfig
           ? maxImagesConfig.default ?? maxImagesConfig.min ?? 1
           : undefined;
 
-        const imageJob: ImageJob = {
+        const imageJob = {
           prompt: prompt.trim(),
           imageUrls: imageReferenceUrls,
           aspectRatio,
-          seed: parseSeed(),
-          imageResolution: selectedImage.ui?.resolutions ? imageResolution : undefined,
+          seed: seed ? parseInt(seed, 10) : undefined,
+          imageResolution: imageModelSpec.ui?.resolutions ? imageResolution : undefined,
           maxImages: parsedMaxImages,
           numImages: parsedMaxImages,
         };
 
-        endpoint = selectedImage.endpoint;
-        payload = selectedImage.mapInput(imageJob);
-        modelId = selectedImage.id;
-        category = "image";
-        provider = selectedImage.provider ?? "fal";
-        callOptions = selectedImage.taskConfig
-          ? { taskConfig: selectedImage.taskConfig }
-          : undefined;
-      } else if (modelKind === "upscale" && selectedUpscale) {
+        payload = imageModelSpec.mapInput(imageJob);
+      } else if (upscaleModelSpec) {
+        endpoint = upscaleModelSpec.endpoint;
+        category = "video"; // Upscaling is treated as video processing
+        provider = upscaleModelSpec.provider ?? "kie";
+        isUpscale = true;
+        callOptions = upscaleModelSpec.taskConfig ? { taskConfig: upscaleModelSpec.taskConfig } : undefined;
+
         if (!upscaleSource.url) {
           throw new Error(
             isVideoUpscaler
@@ -823,7 +765,7 @@ export default function ControlsPane() {
           );
         }
 
-        const job: UpscaleJob = {
+        const upscaleJob = {
           sourceUrl: upscaleSource.url,
           ...(isVideoUpscaler
             ? {
@@ -833,16 +775,9 @@ export default function ControlsPane() {
             : { upscaleFactor }),
         };
 
-        endpoint = selectedUpscale.endpoint;
-        payload = selectedUpscale.mapInput(job);
-        modelId = selectedUpscale.id;
-        category = isVideoUpscaler ? "video" : "image";
-        provider = selectedUpscale.provider ?? "kie";
-        callOptions = selectedUpscale.taskConfig
-          ? { taskConfig: selectedUpscale.taskConfig }
-          : undefined;
+        payload = upscaleModelSpec.mapInput(upscaleJob);
       } else {
-        throw new Error("Select a model to continue.");
+        throw new Error("Model not found");
       }
 
       if (!endpoint || !payload || !modelId || !category) {
@@ -855,7 +790,7 @@ export default function ControlsPane() {
       }
 
       addJob(
-        category === "video" && modelKind === "upscale" ? "upscale" : category,
+        isUpscale ? "upscale" : category,
         prompt.trim() || modelId,
         {
           endpoint,
@@ -863,13 +798,13 @@ export default function ControlsPane() {
           modelId,
           category,
           provider,
-          callOptions,
+          callOptions: callOptions ?? {},
           seed,
           prompt,
           connection,
           refreshTree,
         },
-        async (data, log) => {
+        async (data: unknown, log) => {
           const {
             endpoint,
             payload,
@@ -881,14 +816,25 @@ export default function ControlsPane() {
             prompt,
             connection,
             refreshTree,
-          } = data;
+          } = data as {
+            endpoint: string;
+            payload: Record<string, unknown>;
+            modelId: string;
+            category: "image" | "video";
+            provider: ModelProvider;
+            callOptions?: ProviderCallOptions;
+            seed: string;
+            prompt: string;
+            connection: WorkspaceConnection;
+            refreshTree: (path?: string) => Promise<void>;
+          };
 
           log("Calling model API...");
           const result = await callModelEndpoint(
             provider,
             endpoint,
             payload,
-            callOptions
+            { ...callOptions, log }
           );
 
           let downloadedBlob: Blob;
@@ -921,28 +867,28 @@ export default function ControlsPane() {
                 }
               }
             } catch {
-              // Ignore URL parsing errors; retain default extension.
+              // ignore
             }
           }
 
-          const folder = category === "image" ? "images" : "videos";
-          const relPath = `${folder}/${formatDateFolder(new Date())}/${buildFilename(
-            modelId,
-            prompt,
-            extension,
-            seed.trim() ? seed.trim() : undefined
-          )}`;
+          const dateFolder = formatDateFolder(new Date());
+          const filename = buildFilename(modelId, prompt, extension, seed);
+          const relPath = `${dateFolder}/${filename}`;
 
-          log(`Saving to ${relPath}...`);
-          await uploadFile(connection, relPath, downloadedBlob);
-          await refreshTree(relPath);
-          return relPath;
+          log("Saving to workspace...");
+          if (connection) {
+            await uploadFile(connection, relPath, downloadedBlob);
+            await refreshTree(dateFolder);
+          }
+
+          return resultUrlStr || "Blob saved";
         }
       );
-
-      setStatus("Job queued successfully.");
+      setIsSubmitting(false);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Queue failed.");
+      setIsSubmitting(false);
+      console.error(error);
+      setStatus(error instanceof Error ? error.message : "Generation failed");
     }
   };
 
@@ -1621,14 +1567,16 @@ export default function ControlsPane() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="submit"
-            disabled={pendingUploads || isMissingImageReference}
+            disabled={pendingUploads || isMissingImageReference || isSubmitting}
             className="rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {pendingUploads
-              ? "Waiting on uploads…"
-              : isMissingImageReference
-                ? "Add a reference image"
-                : "Generate"}
+            {isSubmitting
+              ? "Queueing..."
+              : pendingUploads
+                ? "Waiting on uploads…"
+                : isMissingImageReference
+                  ? "Add a reference image"
+                  : "Generate"}
           </button>
           {pricingLabel ? (
             <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-slate-300">
