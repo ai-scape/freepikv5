@@ -15,6 +15,7 @@ Use this reference alongside `README.md` and `docs/AGENT_GUIDE.md` when you need
   - Routes: `/health`, `GET/POST /workspaces`, `GET /files?workspace=...` (flattened tree), `GET /files/:workspace/*` (Range-enabled stream), `POST /files` (multipart upload), `DELETE /files`.
   - Auth: Bearer token header or `?token=` query (for media tags).
   - Files stored under the workspace root using `images/YYYY-MM-DD` or `videos/YYYY-MM-DD`.
+  - Config loading: reads `.env.server` first, then `.env` (both at repo root), so you can configure without exporting shell vars.
 - `src/lib/api/files.ts`
   - `getDefaultConnection()` pulls env defaults.
   - `listFiles`, `uploadFile`, `fetchFileBlob`, `deleteFile`.
@@ -68,6 +69,7 @@ Use this reference alongside `README.md` and `docs/AGENT_GUIDE.md` when you need
 - **Pricing:** Update `pricing.ts` when adding/changing models so the badge stays correct.
 - **Mime/filter updates:** Extend `mime.ts`, adjust `EXT_FILTERS`, and ensure `PreviewPane` knows how to render the new type (server streaming uses `mime-types`).
 - **Lint/tests:** Run `npm run lint` and `npm run build`. Manual smoke test: `npm run dev:all` → connect default workspace → drop start/reference frames → run both an image + a video model → confirm files appear in the browser and preview/drag/drop still work → capture a frame back to the workspace.
+- **Env files:** Place server config in `.env.server` (or `.env`) and frontend config in `.env.local`; `dev:all` will pick both up automatically.
 
 ## 7. Extension Checklist
 1. **New video model**

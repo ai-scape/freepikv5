@@ -40,15 +40,19 @@ VITE_FILE_API_BASE=http://localhost:8787
 VITE_FILE_API_TOKEN=devtoken
 ```
 
-### 3. Set Up Server Env (optional)
+### 3. Set Up Server Env (via file, no terminal exports)
 
-The file API server reads standard env vars; defaults are fine for local dev.
+Create a `.env.server` (or `.env`) in the project root for the file API server:
 
-- `FILE_API_PORT=8787`
-- `FILE_STORAGE_ROOT=./data`
-- `FILE_API_TOKEN=devtoken` (should match `VITE_FILE_API_TOKEN`)
-- `FILE_API_CORS_ORIGIN=http://localhost:5173`
-- `FILE_MAX_SIZE_MB=1024`
+```env
+FILE_API_PORT=8787
+FILE_STORAGE_ROOT=/absolute/path/to/your/folder   # e.g., ./data
+FILE_API_TOKEN=devtoken                           # match VITE_FILE_API_TOKEN
+FILE_API_CORS_ORIGIN=http://localhost:5173
+FILE_MAX_SIZE_MB=1024
+```
+
+The server loads `.env.server` (preferred) and then `.env` automatically. No need to export vars in your shell.
 
 ### 4. Connect a Workspace
 
