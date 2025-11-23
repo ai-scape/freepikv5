@@ -18,7 +18,7 @@ export type WorkspaceConnection = {
 const defaultApiBase = import.meta.env.VITE_FILE_API_BASE?.replace(/\/$/, "");
 const defaultToken = import.meta.env.VITE_FILE_API_TOKEN;
 
-function authHeaders(token?: string): Record<string, string> {
+export function authHeaders(token?: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
