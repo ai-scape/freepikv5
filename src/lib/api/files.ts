@@ -137,6 +137,28 @@ export async function deleteFile(
   }
 }
 
+export async function renameFile(
+  connection: WorkspaceConnection,
+  relPath: string,
+  newPath: string
+): Promise<void> {
+  const response = await fetch(new URL("/files", connection.apiBase), {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(connection.token),
+    },
+    body: JSON.stringify({
+      workspace: connection.workspaceId,
+      path: relPath,
+      newPath,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Rename failed: ${response.statusText}`);
+  }
+}
+
 export async function listWorkspaces(
   apiBase: string,
   token?: string

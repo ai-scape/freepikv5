@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useCatalog } from "../state/useCatalog";
+import { type FileEntry } from "../lib/api/files";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { Spinner } from "./ui/Spinner";
 
@@ -8,8 +9,37 @@ const EXT_FILTERS = ["png", "jpg", "webp", "mp4", "webm"];
 export default function FileBrowser() {
   const {
     state: { entries, q, filterExt, selected, loading, connection },
-    actions: { setQuery, setFilters, select, refreshTree },
+    actions: { setQuery, setFilters, select, refreshTree, rename, remove },
   } = useCatalog();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const handleRename = async (entry: FileEntry) => {
+    if (!editName.trim() || editName === entry.name) {
+      setEditingId(null);
+      return;
+    }
+    try {
+      await rename(entry, editName.trim());
+    } catch (error) {
+      console.error(error);
+      alert("Failed to rename file");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  const handleDelete = async (entry: FileEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete "${entry.name}"?`)) return;
+    try {
+      await remove(entry);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete file");
+    }
+  };
 
   const filteredEntries = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -17,7 +47,7 @@ export default function FileBrowser() {
       if (!connection) return false;
       const matchesQuery = query
         ? entry.name.toLowerCase().includes(query) ||
-          entry.relPath.toLowerCase().includes(query)
+        entry.relPath.toLowerCase().includes(query)
         : true;
       const matchesExt =
         filterExt.length === 0 ||
@@ -136,22 +166,55 @@ export default function FileBrowser() {
                     }
                   }}
                   onClick={() => select(entry)}
-                  className={`flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm transition hover:bg-white/5 ${selected?.id === entry.id ? "bg-white/10" : ""
+                  className={`group flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm transition hover:bg-white/5 ${selected?.id === entry.id ? "bg-white/10" : ""
                     }`}
                 >
-                  <div>
-                    <div className="font-semibold text-white">
-                      {entry.name}
-                      {entry.kind === "dir" ? "/" : ""}
-                    </div>
-                    <div className="text-xs text-slate-400">
+                  <div className="flex-1 min-w-0">
+                    {editingId === entry.id ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={() => handleRename(entry)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRename(entry);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
+                      />
+                    ) : (
+                      <div
+                        className="font-semibold text-white truncate"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(entry.id);
+                          setEditName(entry.name);
+                        }}
+                      >
+                        {entry.name}
+                        {entry.kind === "dir" ? "/" : ""}
+                      </div>
+                    )}
+                    <div className="text-xs text-slate-400 truncate">
                       {entry.relPath}
                     </div>
                   </div>
-                  <div className="text-right text-xs text-slate-400">
-                    {entry.kind === "dir"
-                      ? "Directory"
-                      : `${(entry.size / 1024).toFixed(1)} kB`}
+                  <div className="flex items-center gap-2 text-right text-xs text-slate-400">
+                    <span>
+                      {entry.kind === "dir"
+                        ? "Directory"
+                        : `${(entry.size / 1024).toFixed(1)} kB`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDelete(entry, e)}
+                      className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-red-400"
+                      title="Delete"
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </button>
               </li>

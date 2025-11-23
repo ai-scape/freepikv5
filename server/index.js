@@ -307,6 +307,29 @@ server.delete("/files", async (request, reply) => {
   }
 });
 
+server.patch("/files", async (request, reply) => {
+  let { workspace, path: relPath, newPath } = request.body ?? {};
+  try {
+    workspace = sanitizeWorkspaceId(workspace);
+    relPath = sanitizeRelPath(relPath);
+    newPath = sanitizeRelPath(newPath);
+  } catch (error) {
+    reply.code(400).send({ error: error.message ?? "Invalid input" });
+    return;
+  }
+
+  const workspaceDir = await ensureWorkspaceDir(workspace);
+  const oldFullPath = toSafePath(workspaceDir, relPath);
+  const newFullPath = toSafePath(workspaceDir, newPath);
+
+  try {
+    await fs.rename(oldFullPath, newFullPath);
+    reply.send({ ok: true });
+  } catch (error) {
+    reply.code(500).send({ error: error.message ?? "Rename failed" });
+  }
+});
+
 import { spawn } from "node:child_process";
 
 server.post("/resize-video", async (request, reply) => {

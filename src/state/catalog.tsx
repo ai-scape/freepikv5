@@ -7,6 +7,8 @@ import {
 } from "react";
 import {
   listFiles,
+  renameFile,
+  deleteFile,
   type FileEntry,
   type WorkspaceConnection,
 } from "../lib/api/files";
@@ -90,6 +92,20 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         select: (entry?: FileEntry) => setSelected(entry),
         setFilters: (filters: string[]) => setFilterExt(filters),
         setQuery: (value: string) => setQ(value),
+        rename: async (entry: FileEntry, newName: string) => {
+          if (!connection) return;
+          const newPath = entry.relPath.replace(entry.name, newName);
+          await renameFile(connection, entry.relPath, newPath);
+          await refreshTree(newPath);
+        },
+        remove: async (entry: FileEntry) => {
+          if (!connection) return;
+          await deleteFile(connection, entry.relPath);
+          setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+          if (selected?.id === entry.id) {
+            setSelected(undefined);
+          }
+        },
       },
     }),
     [

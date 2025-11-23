@@ -18,6 +18,8 @@ type CatalogActions = {
   select(entry?: FileEntry): void;
   setFilters(filters: string[]): void;
   setQuery(value: string): void;
+  rename(entry: FileEntry, newName: string): Promise<void>;
+  remove(entry: FileEntry): Promise<void>;
 };
 
 type CatalogContextValue = {
