@@ -5,7 +5,7 @@ import {
   downloadBlob,
   extractUrl,
 } from "./providers/shared";
-import type { ProviderCallResult } from "./providers/types";
+import type { ProviderCallOptions, ProviderCallResult } from "./providers/types";
 
 const FAL_BASE_URL = "https://fal.run";
 
@@ -74,11 +74,11 @@ export async function callFal(
 
   const maybeBytes = blobFromBytes(
     data?.bytes ??
-      (data?.data as { bytes?: unknown })?.bytes ??
-      (data?.result as { bytes?: unknown })?.bytes,
+    (data?.data as { bytes?: unknown })?.bytes ??
+    (data?.result as { bytes?: unknown })?.bytes,
     (data?.mime as string | undefined) ??
-      ((data?.data as { mime?: string })?.mime ?? undefined) ??
-      "application/octet-stream"
+    ((data?.data as { mime?: string })?.mime ?? undefined) ??
+    "application/octet-stream"
   );
 
   if (maybeBytes) {
@@ -86,6 +86,44 @@ export async function callFal(
   }
 
   throw new Error("Unable to locate asset payload in FAL response.");
+  throw new Error("Unable to locate asset payload in FAL response.");
+}
+
+export async function callFalSubscribe(
+  endpoint: string,
+  input: Record<string, unknown>,
+  options?: ProviderCallOptions
+): Promise<ProviderCallResult> {
+  const client = ensureFalClient();
+  const { log } = options ?? {};
+
+  try {
+    const result = await client.subscribe(endpoint, {
+      input,
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS" && log) {
+          update.logs.map((l) => l.message).forEach(log);
+        }
+      },
+    });
+
+    // Qwen returns { images: [{ url: "..." }] }
+    const images = (result.data as { images?: Array<{ url: string }> })?.images;
+    if (images && images.length > 0 && images[0].url) {
+      const url = images[0].url;
+      return {
+        url,
+        blob: await downloadBlob(url),
+      };
+    }
+
+    throw new Error("No image URL found in response");
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : "FAL subscribe request failed"
+    );
+  }
 }
 
 function extractUploadUrl(result: unknown): string | undefined {

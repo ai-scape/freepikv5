@@ -14,6 +14,7 @@ export type UpscaleModelSpec = {
   provider?: ModelProvider;
   pricing?: string;
   taskConfig?: TaskPollingConfig;
+  kind: "image" | "video";
   mapInput(job: UpscaleJob): Record<string, unknown>;
 };
 
@@ -24,6 +25,7 @@ export const UPSCALE_MODELS: UpscaleModelSpec[] = [
     endpoint: "fal-ai/bytedance-upscaler/upscale/video",
     provider: "fal",
     pricing: "$0.04/sec (video)",
+    kind: "video",
     mapInput: ({ sourceUrl, targetResolution, targetFps }) => ({
       video_url: sourceUrl,
       target_resolution: targetResolution ?? "1080p",
@@ -36,6 +38,7 @@ export const UPSCALE_MODELS: UpscaleModelSpec[] = [
     endpoint: "/api/v1/jobs/createTask",
     provider: "kie",
     pricing: "$0.05/image",
+    kind: "image",
     taskConfig: {
       statusEndpoint: "/api/v1/jobs/recordInfo",
       statePath: "data.state",
@@ -61,6 +64,7 @@ export const UPSCALE_MODELS: UpscaleModelSpec[] = [
     endpoint: "fal-ai/clarity-upscaler",
     provider: "fal",
     pricing: "$0.03/image",
+    kind: "image",
     mapInput: ({ sourceUrl, upscaleFactor }) => ({
       image_url: sourceUrl,
       ...(upscaleFactor ? { upscale_factor: Number(upscaleFactor) } : {}),

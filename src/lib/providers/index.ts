@@ -1,4 +1,4 @@
-import { callFal, getFalKey } from "../fal";
+import { callFal, callFalSubscribe, getFalKey } from "../fal";
 import { callKie, getKieKey } from "../kie";
 import type {
   ModelProvider,
@@ -9,6 +9,7 @@ import type {
 
 const ENV_MAP: Record<ModelProvider, string> = {
   fal: "VITE_FAL_KEY",
+  "fal-client": "VITE_FAL_KEY",
   kie: "VITE_KIE_KEY",
 };
 
@@ -20,6 +21,9 @@ export async function callModelEndpoint(
 ): Promise<ProviderCallResult> {
   if (provider === "kie") {
     return callKie(endpoint, payload, options);
+  }
+  if (provider === "fal-client") {
+    return callFalSubscribe(endpoint, payload, options);
   }
   return callFal(endpoint, payload);
 }

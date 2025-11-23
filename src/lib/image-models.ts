@@ -301,115 +301,41 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     },
   },
   {
-    id: "flux-kontext-pro",
-    label: "Flux Kontext Pro — Text & Edit",
-    endpoint: "https://api.kie.ai/fluxkontext/v1/generate",
-    provider: "kie",
-    pricing: "$0.025/image",
-    mode: "hybrid",
-    maxRefs: 1,
+    id: "qwen-image-edit-plus",
+    label: "Qwen Image Edit Plus",
+    endpoint: "fal-ai/qwen-image-edit-plus",
+    provider: "fal-client",
+    pricing: "$0.03/image",
+    mode: "edit",
+    maxRefs: 3,
     ui: {
       aspectRatios: [
-        { value: "16:9", label: "Landscape (16:9)" },
-        { value: "4:3", label: "Landscape (4:3)" },
-        { value: "3:2", label: "Landscape (3:2)" },
-        { value: "1:1", label: "Square (1:1)" },
-        { value: "3:4", label: "Portrait (3:4)" },
-        { value: "2:3", label: "Portrait (2:3)" },
-        { value: "9:16", label: "Portrait (9:16)" },
-        { value: "21:9", label: "Ultra-wide (21:9)" },
+        { value: "square_hd", label: "Square HD" },
+        { value: "square", label: "Square" },
+        { value: "portrait_4_3", label: "Portrait (3:4)" },
+        { value: "portrait_16_9", label: "Portrait (9:16)" },
+        { value: "landscape_4_3", label: "Landscape (4:3)" },
+        { value: "landscape_16_9", label: "Landscape (16:9)" },
       ],
       outputFormats: [
-        { value: "jpeg", label: "JPEG" },
         { value: "png", label: "PNG" },
+        { value: "jpeg", label: "JPEG" },
       ],
     },
-    mapInput: ({ prompt, imageUrls, aspectRatio, outputFormat, enableTranslation, promptUpsampling, safetyTolerance, watermark }) => {
-      const hasRef = imageUrls.length > 0;
-      const aspect = aspectRatio ?? "16:9";
-      return hasRef
-        ? {
-            prompt,
-            inputImage: imageUrls[0],
-            aspectRatio: aspect,
-            outputFormat: outputFormat ?? "png",
-            enableTranslation: enableTranslation ?? true,
-            model: "flux-kontext-pro",
-            ...(promptUpsampling !== undefined ? { promptUpsampling } : {}),
-            ...(safetyTolerance !== undefined ? { safetyTolerance } : {}),
-            ...(watermark ? { watermark } : {}),
-          }
-        : {
-            prompt,
-            aspectRatio: aspect,
-            outputFormat: outputFormat ?? "png",
-            enableTranslation: enableTranslation ?? true,
-            model: "flux-kontext-pro",
-            ...(promptUpsampling !== undefined ? { promptUpsampling } : {}),
-            ...(safetyTolerance !== undefined ? { safetyTolerance } : {}),
-            ...(watermark ? { watermark } : {}),
-          };
+    mapInput: ({ prompt, imageUrls, aspectRatio, outputFormat, seed }) => {
+      return {
+        prompt,
+        image_urls: imageUrls,
+        image_size: aspectRatio ?? "square_hd",
+        output_format: outputFormat ?? "png",
+        ...(seed !== undefined ? { seed } : {}),
+        enable_safety_checker: true,
+        num_images: 1,
+      };
     },
     getUrls: (output) => {
-      const url = (output as { url?: string })?.url;
-      if (typeof url === "string") return [url];
-      return [];
-    },
-  },
-  {
-    id: "flux-kontext-max",
-    label: "Flux Kontext Max — Text & Edit",
-    endpoint: "https://api.kie.ai/fluxkontext/v1/generate",
-    provider: "kie",
-    pricing: "$0.05/image",
-    mode: "hybrid",
-    maxRefs: 1,
-    ui: {
-      aspectRatios: [
-        { value: "16:9", label: "Landscape (16:9)" },
-        { value: "4:3", label: "Landscape (4:3)" },
-        { value: "3:2", label: "Landscape (3:2)" },
-        { value: "1:1", label: "Square (1:1)" },
-        { value: "3:4", label: "Portrait (3:4)" },
-        { value: "2:3", label: "Portrait (2:3)" },
-        { value: "9:16", label: "Portrait (9:16)" },
-        { value: "21:9", label: "Ultra-wide (21:9)" },
-      ],
-      outputFormats: [
-        { value: "jpeg", label: "JPEG" },
-        { value: "png", label: "PNG" },
-      ],
-    },
-    mapInput: ({ prompt, imageUrls, aspectRatio, outputFormat, enableTranslation, promptUpsampling, safetyTolerance, watermark }) => {
-      const hasRef = imageUrls.length > 0;
-      const aspect = aspectRatio ?? "16:9";
-      return hasRef
-        ? {
-            prompt,
-            inputImage: imageUrls[0],
-            aspectRatio: aspect,
-            outputFormat: outputFormat ?? "png",
-            enableTranslation: enableTranslation ?? true,
-            model: "flux-kontext-max",
-            ...(promptUpsampling !== undefined ? { promptUpsampling } : {}),
-            ...(safetyTolerance !== undefined ? { safetyTolerance } : {}),
-            ...(watermark ? { watermark } : {}),
-          }
-        : {
-            prompt,
-            aspectRatio: aspect,
-            outputFormat: outputFormat ?? "png",
-            enableTranslation: enableTranslation ?? true,
-            model: "flux-kontext-max",
-            ...(promptUpsampling !== undefined ? { promptUpsampling } : {}),
-            ...(safetyTolerance !== undefined ? { safetyTolerance } : {}),
-            ...(watermark ? { watermark } : {}),
-          };
-    },
-    getUrls: (output) => {
-      const url = (output as { url?: string })?.url;
-      if (typeof url === "string") return [url];
-      return [];
+      const images = (output as { images?: Array<{ url: string }> })?.images;
+      return (images ?? []).map((img) => img.url).filter(Boolean);
     },
   },
 ];

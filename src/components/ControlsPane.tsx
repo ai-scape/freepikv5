@@ -752,7 +752,7 @@ export default function ControlsPane() {
         payload = imageModelSpec.mapInput(imageJob);
       } else if (upscaleModelSpec) {
         endpoint = upscaleModelSpec.endpoint;
-        category = "video"; // Upscaling is treated as video processing
+        category = upscaleModelSpec.kind;
         provider = upscaleModelSpec.provider ?? "kie";
         isUpscale = true;
         callOptions = upscaleModelSpec.taskConfig ? { taskConfig: upscaleModelSpec.taskConfig } : undefined;
@@ -1469,6 +1469,21 @@ export default function ControlsPane() {
                 <div className="flex flex-col items-center justify-center py-4 text-xs text-slate-400">
                   {upscaleSource.preview || upscaleSource.name ? (
                     <div className="text-center">
+                      {upscaleSource.preview ? (
+                        isVideoUpscaler ? (
+                          <video
+                            src={upscaleSource.preview}
+                            className="mb-2 h-32 w-full rounded-xl object-cover"
+                            controls
+                          />
+                        ) : (
+                          <img
+                            src={upscaleSource.preview}
+                            alt={upscaleSource.name}
+                            className="mb-2 h-32 w-full rounded-xl object-cover"
+                          />
+                        )
+                      ) : null}
                       <p className="mb-2 font-semibold text-emerald-400">
                         {isVideoUpscaler ? "Video Selected" : "Image Selected"}
                       </p>
