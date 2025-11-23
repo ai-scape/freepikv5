@@ -878,7 +878,7 @@ export default function ControlsPane() {
           log("Saving to workspace...");
           if (connection) {
             await uploadFile(connection, relPath, downloadedBlob);
-            await refreshTree(dateFolder);
+            await refreshTree(relPath);
           }
 
           return resultUrlStr || "Blob saved";
