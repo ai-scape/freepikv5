@@ -41,6 +41,7 @@ import {
   uploadFile,
   authHeaders,
 } from "../lib/api/files";
+import { useQueue } from "../state/queue";
 
 function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
@@ -81,6 +82,7 @@ export default function ControlsPane() {
     state: { connection },
     actions: { refreshTree },
   } = useCatalog();
+  const { addJob } = useQueue();
   const [modelKey, setModelKey] = useState(DEFAULT_MODEL_KEY);
   const [activeTab, setActiveTab] = useState<"image" | "video" | "upscale">(() => {
     if (DEFAULT_MODEL_KEY.startsWith("image:")) return "image";
@@ -95,7 +97,7 @@ export default function ControlsPane() {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [imageResolution, setImageResolution] = useState("1K");
   const [status, setStatus] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // const [busy, setBusy] = useState(false);
   const [isStartDragActive, setIsStartDragActive] = useState(false);
   const [isEndDragActive, setIsEndDragActive] = useState(false);
   const [isReferenceDragActive, setIsReferenceDragActive] = useState(false);
@@ -707,8 +709,8 @@ export default function ControlsPane() {
       setStatus("Uploads in progress. Please wait until they complete.");
       return;
     }
-    setBusy(true);
-    setStatus("Starting render…");
+    // setBusy(true); // No longer blocking
+    setStatus("Queuing job...");
 
     try {
       let endpoint: string | undefined;
@@ -852,51 +854,95 @@ export default function ControlsPane() {
         );
       }
 
-      const result = await callModelEndpoint(
-        provider,
-        endpoint,
-        payload,
-        callOptions
-      );
-      const downloadedBlob = result.url
-        ? await downloadBlob(result.url)
-        : result.blob;
-      if (!downloadedBlob) {
-        throw new Error("Provider response did not include a binary output.");
-      }
+      addJob(
+        category === "video" && modelKind === "upscale" ? "upscale" : category,
+        prompt.trim() || modelId,
+        {
+          endpoint,
+          payload,
+          modelId,
+          category,
+          provider,
+          callOptions,
+          seed,
+          prompt,
+          connection,
+          refreshTree,
+        },
+        async (data, log) => {
+          const {
+            endpoint,
+            payload,
+            modelId,
+            category,
+            provider,
+            callOptions,
+            seed,
+            prompt,
+            connection,
+            refreshTree,
+          } = data;
 
-      let extension = extensionFromMime(
-        downloadedBlob.type ||
-        (category === "image" ? "image/png" : "video/mp4")
-      );
-      if (extension === "bin" && result.url) {
-        try {
-          const url = new URL(result.url);
-          const pathname = url.pathname ?? "";
-          const parts = pathname.split(".");
-          const maybeExt = parts.length > 1 ? parts.pop() : undefined;
-          if (maybeExt && maybeExt.length <= 5) {
-            extension = maybeExt.toLowerCase();
+          log("Calling model API...");
+          const result = await callModelEndpoint(
+            provider,
+            endpoint,
+            payload,
+            callOptions
+          );
+
+          let downloadedBlob: Blob;
+          let resultUrlStr: string | undefined;
+
+          if (result.blob) {
+            downloadedBlob = result.blob;
+          } else if (result.url) {
+            resultUrlStr = result.url;
+            log("Downloading result...");
+            downloadedBlob = await downloadBlob(result.url);
+          } else {
+            throw new Error("No result from model");
           }
-        } catch {
-          // Ignore URL parsing errors; retain default extension.
-        }
-      }
-      const folder = category === "image" ? "images" : "videos";
-      const relPath = `${folder}/${formatDateFolder(new Date())}/${buildFilename(
-        modelId,
-        prompt,
-        extension,
-        seed.trim() ? seed.trim() : undefined
-      )}`;
 
-      await uploadFile(connection, relPath, downloadedBlob);
-      await refreshTree(relPath);
-      setStatus(`Saved render to ${relPath}`);
+          // Determine extension
+          let extension = category === "image" ? "png" : "mp4";
+          if (resultUrlStr) {
+            try {
+              const urlObj = new URL(resultUrlStr);
+              const pathname = urlObj.pathname;
+              const ext = pathname.split(".").pop();
+              if (ext && ext.length >= 3 && ext.length <= 4) {
+                extension = ext;
+              } else {
+                const type = downloadedBlob.type;
+                const mimeExt = extensionFromMime(type);
+                if (mimeExt) {
+                  extension = mimeExt;
+                }
+              }
+            } catch {
+              // Ignore URL parsing errors; retain default extension.
+            }
+          }
+
+          const folder = category === "image" ? "images" : "videos";
+          const relPath = `${folder}/${formatDateFolder(new Date())}/${buildFilename(
+            modelId,
+            prompt,
+            extension,
+            seed.trim() ? seed.trim() : undefined
+          )}`;
+
+          log(`Saving to ${relPath}...`);
+          await uploadFile(connection, relPath, downloadedBlob);
+          await refreshTree(relPath);
+          return relPath;
+        }
+      );
+
+      setStatus("Job queued successfully.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Generation failed.");
-    } finally {
-      setBusy(false);
+      setStatus(error instanceof Error ? error.message : "Queue failed.");
     }
   };
 
@@ -1575,16 +1621,14 @@ export default function ControlsPane() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="submit"
-            disabled={busy || pendingUploads || isMissingImageReference}
+            disabled={pendingUploads || isMissingImageReference}
             className="rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy
-              ? "Generating…"
-              : pendingUploads
-                ? "Waiting on uploads…"
-                : isMissingImageReference
-                  ? "Add a reference image"
-                  : "Generate"}
+            {pendingUploads
+              ? "Waiting on uploads…"
+              : isMissingImageReference
+                ? "Add a reference image"
+                : "Generate"}
           </button>
           {pricingLabel ? (
             <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-slate-300">

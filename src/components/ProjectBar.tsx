@@ -8,6 +8,8 @@ import {
 } from "../lib/api/files";
 import { useCatalog } from "../state/useCatalog";
 import { Tooltip, InfoIcon } from "./ui/Tooltip";
+import { useQueue } from "../state/queue";
+import QueueLog from "./QueueLog";
 
 const STORAGE_KEY = "file-api-connection";
 
@@ -222,6 +224,8 @@ export default function ProjectBar() {
                 </button>
               </Tooltip>
             ) : null}
+            <div className="h-4 w-px bg-white/10 mx-1" />
+            <QueueButton />
           </div>
         </div>
       </div>
@@ -234,6 +238,29 @@ export default function ProjectBar() {
           👉 <strong>Getting Started:</strong> Enter your file API URL, workspace, and token, then click Connect.
         </div>
       ) : null}
+      <QueueLog />
     </header>
+  );
+}
+
+function QueueButton() {
+  const { jobs, toggleLog, isLogOpen } = useQueue();
+  const activeCount = jobs.filter((j) => j.status === "processing" || j.status === "pending").length;
+
+  return (
+    <button
+      onClick={toggleLog}
+      className={`relative rounded-full border px-3 py-1 font-semibold text-xs transition ${isLogOpen || activeCount > 0
+        ? "border-sky-500 text-sky-400 bg-sky-500/10"
+        : "border-white/10 text-slate-400 hover:text-white"
+        }`}
+    >
+      Queue
+      {activeCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[9px] text-white">
+          {activeCount}
+        </span>
+      )}
+    </button>
   );
 }
