@@ -7,17 +7,17 @@ const EXT_FILTERS = ["png", "jpg", "webp", "mp4", "webm"];
 
 export default function FileBrowser() {
   const {
-    state: { entries, q, filterExt, selected, loading, project },
+    state: { entries, q, filterExt, selected, loading, connection },
     actions: { setQuery, setFilters, select, refreshTree },
   } = useCatalog();
 
   const filteredEntries = useMemo(() => {
     const query = q.trim().toLowerCase();
     return entries.filter((entry) => {
-      if (!project) return false;
+      if (!connection) return false;
       const matchesQuery = query
         ? entry.name.toLowerCase().includes(query) ||
-        entry.relPath.toLowerCase().includes(query)
+          entry.relPath.toLowerCase().includes(query)
         : true;
       const matchesExt =
         filterExt.length === 0 ||
@@ -35,14 +35,14 @@ export default function FileBrowser() {
     );
   };
 
-  if (!project) {
+  if (!connection) {
     return (
       <div className="rounded-lg border border-dashed border-white/20 bg-gradient-to-br from-sky-500/5 to-indigo-500/5 p-6 text-sm">
         <div className="mb-2 text-base font-semibold text-sky-200">
-          📂 No Project Selected
+          📂 No Workspace Connected
         </div>
         <div className="text-slate-300">
-          Click <strong>"Pick Folder"</strong> at the top to select where your generated assets will be saved.
+          Click <strong>"Connect"</strong> at the top to link your workspace API and start browsing files.
         </div>
       </div>
     );
@@ -123,7 +123,15 @@ export default function FileBrowser() {
                   draggable={entry.kind === "file"}
                   onDragStart={(event) => {
                     if (entry.kind === "file") {
-                      event.dataTransfer.setData(FILE_ENTRY_MIME, entry.relPath);
+                      event.dataTransfer.setData(
+                        FILE_ENTRY_MIME,
+                        JSON.stringify({
+                          workspaceId: connection.workspaceId,
+                          path: entry.relPath,
+                          name: entry.name,
+                          mime: entry.mime,
+                        })
+                      );
                       event.dataTransfer.effectAllowed = "copy";
                     }
                   }}

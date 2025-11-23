@@ -25,8 +25,6 @@ import { getModelPricingLabel } from "../lib/pricing";
 import { uploadToFal } from "../lib/fal";
 import { extensionFromMime } from "../lib/mime";
 import { buildFilename } from "../lib/filename";
-import { writeBlob } from "../fs/write";
-import { resolvePath } from "../fs/dir";
 import { useCatalog } from "../state/useCatalog";
 import { Spinner } from "./ui/Spinner";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
@@ -38,6 +36,10 @@ import {
   type ProviderCallOptions,
 } from "../lib/providers";
 import { downloadBlob } from "../lib/providers/shared";
+import {
+  fetchFileBlob,
+  uploadFile,
+} from "../lib/api/files";
 
 function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
@@ -75,7 +77,7 @@ const DEFAULT_MODEL_KEY = MODEL_SPECS.length
 
 export default function ControlsPane() {
   const {
-    state: { project },
+    state: { connection },
     actions: { refreshTree },
   } = useCatalog();
   const [modelKey, setModelKey] = useState(DEFAULT_MODEL_KEY);
@@ -210,21 +212,33 @@ export default function ControlsPane() {
       if (dataTransfer.files && dataTransfer.files.length > 0) {
         return Array.from(dataTransfer.files);
       }
-      const relPath = dataTransfer.getData(FILE_ENTRY_MIME);
-      if (relPath && project) {
+      const payloadRaw = dataTransfer.getData(FILE_ENTRY_MIME);
+      if (payloadRaw && connection) {
         try {
-          const resolved = await resolvePath(project, relPath);
-          if (resolved.file) {
-            const file = await resolved.file.getFile();
-            return [file];
-          }
+          const payload = JSON.parse(payloadRaw) as {
+            workspaceId: string;
+            path: string;
+            name?: string;
+            mime?: string;
+          };
+          if (payload.workspaceId !== connection.workspaceId) return [];
+          const blob = await fetchFileBlob(connection, payload.path);
+          const name =
+            payload.name ??
+            payload.path.split("/").filter(Boolean).pop() ??
+            "file.bin";
+          return [
+            new File([blob], name, {
+              type: blob.type || payload.mime || "application/octet-stream",
+            }),
+          ];
         } catch {
           return [];
         }
       }
       return [];
     },
-    [project]
+    [connection]
   );
 
   const handleStartFrameSelect = useCallback(
@@ -643,8 +657,8 @@ export default function ControlsPane() {
 
   const handleGenerate = async (event: FormEvent) => {
     event.preventDefault();
-    if (!project) {
-      setStatus("Pick a project folder before generating.");
+    if (!connection) {
+      setStatus("Connect a workspace before generating.");
       return;
     }
     if (modelKind !== "upscale" && !prompt.trim()) {
@@ -838,7 +852,7 @@ export default function ControlsPane() {
         seed.trim() ? seed.trim() : undefined
       )}`;
 
-      await writeBlob(project, relPath, downloadedBlob);
+      await uploadFile(connection, relPath, downloadedBlob);
       await refreshTree(relPath);
       setStatus(`Saved render to ${relPath}`);
     } catch (error) {

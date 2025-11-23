@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getObjectURL, revokeURL } from "../fs/preview";
-import { writeBlob } from "../fs/write";
 import { useCatalog } from "../state/useCatalog";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
+import { getFileUrl, uploadFile } from "../lib/api/files";
 
 function formatBytes(size: number) {
   if (size < 1024) return `${size} B`;
@@ -16,7 +15,7 @@ function formatDate(value: number) {
 
 export default function PreviewPane() {
   const {
-    state: { selected, project },
+    state: { selected, connection },
     actions: { refreshTree },
   } = useCatalog();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -38,8 +37,16 @@ export default function PreviewPane() {
     { value: "9:16", label: "9:16" },
   ] as const;
   const handleDragStart = (event: React.DragEvent) => {
-    if (!selected || selected.kind !== "file") return;
-    event.dataTransfer.setData(FILE_ENTRY_MIME, selected.relPath);
+    if (!selected || selected.kind !== "file" || !connection) return;
+    event.dataTransfer.setData(
+      FILE_ENTRY_MIME,
+      JSON.stringify({
+        workspaceId: connection.workspaceId,
+        path: selected.relPath,
+        name: selected.name,
+        mime: selected.mime,
+      })
+    );
     event.dataTransfer.effectAllowed = "copy";
   };
 
@@ -153,8 +160,8 @@ export default function PreviewPane() {
 
   const captureFrame = useCallback(
     async (targetTime?: number, label?: string) => {
-      if (!project || !selected || selected.kind !== "file") {
-        setCaptureStatus("Frame extraction is only available when a project and file are selected.");
+      if (!connection || !selected || selected.kind !== "file") {
+        setCaptureStatus("Frame extraction is only available when a workspace and video are selected.");
         return;
       }
       if (!selected.mime.startsWith("video")) {
@@ -198,7 +205,7 @@ export default function PreviewPane() {
         const outputName = `${baseName}_frame_${msStamp}ms.png`;
         const relPath = baseDir ? `${baseDir}/${outputName}` : outputName;
 
-        await writeBlob(project, relPath, blob);
+        await uploadFile(connection, relPath, blob);
         await refreshTree(selected.relPath);
         setCaptureStatus(`Saved frame to ${relPath}`);
       } catch (err) {
@@ -212,7 +219,7 @@ export default function PreviewPane() {
     [
       captureFrameToBlob,
       ensureMetadataReady,
-      project,
+      connection,
       refreshTree,
       selected,
       seekToTime,
@@ -317,55 +324,18 @@ export default function PreviewPane() {
   }, [cropAspect, parseAspectRatio, previewUrl, selected]);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!project || !selected || selected.kind === "dir") {
+    if (!connection || !selected || selected.kind === "dir") {
       setError(null);
-      setPreviewUrl((previous) => {
-        if (previous) {
-          revokeURL(previous);
-        }
-        return null;
-      });
+      setPreviewUrl(null);
       return;
     }
-
     setLoading(true);
     setError(null);
+    setPreviewUrl(getFileUrl(connection, selected.relPath, { includeToken: true }));
+    setLoading(false);
+  }, [connection, selected]);
 
-    void (async () => {
-      try {
-        const url = await getObjectURL(project, selected.relPath);
-        if (cancelled) {
-          revokeURL(url);
-          return;
-        }
-        setPreviewUrl((previous) => {
-          if (previous) {
-            revokeURL(previous);
-          }
-          return url;
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to preview file.");
-        setPreviewUrl((previous) => {
-          if (previous) {
-            revokeURL(previous);
-          }
-          return null;
-        });
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [project, selected]);
-
-  if (!project) {
+  if (!connection) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="max-w-xs rounded-lg border border-dashed border-white/20 bg-gradient-to-br from-sky-500/5 to-indigo-500/5 p-6 text-center text-sm">
@@ -374,7 +344,7 @@ export default function PreviewPane() {
             Preview Panel
           </div>
           <div className="text-slate-300">
-            Select a project folder first, then click any file to preview it here.
+            Connect a workspace first, then click any file to preview it here.
           </div>
         </div>
       </div>

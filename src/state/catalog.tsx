@@ -5,7 +5,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { walk, type FileEntry } from "../fs/tree";
+import {
+  listFiles,
+  type FileEntry,
+  type WorkspaceConnection,
+} from "../lib/api/files";
 import { CatalogContext, type CatalogContextValue } from "./CatalogContext";
 
 export type { CatalogState } from "./CatalogContext";
@@ -15,16 +19,16 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [filterExt, setFilterExt] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<FileEntry | undefined>();
-  const [project, setProjectState] = useState<
-    FileSystemDirectoryHandle | undefined
+  const [connection, setConnectionState] = useState<
+    WorkspaceConnection | undefined
   >();
   const [loading, setLoading] = useState(false);
 
   const refreshTree = useCallback(async (preferredPath?: string) => {
-    if (!project) return;
+    if (!connection) return;
     setLoading(true);
     try {
-      const nextEntries = await walk(project);
+      const nextEntries = await listFiles(connection);
       setEntries(nextEntries);
       if (!nextEntries.length) {
         setSelected(undefined);
@@ -48,20 +52,20 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [project]);
+  }, [connection]);
 
   useEffect(() => {
-    if (!project) {
+    if (!connection) {
       setEntries([]);
       setSelected(undefined);
       return;
     }
     void refreshTree();
-  }, [project, refreshTree]);
+  }, [connection, refreshTree]);
 
-  const setProject = useCallback(
-    (handle?: FileSystemDirectoryHandle | null) => {
-      setProjectState(handle ?? undefined);
+  const setConnection = useCallback(
+    (value?: WorkspaceConnection | null) => {
+      setConnectionState(value ?? undefined);
     },
     []
   );
@@ -73,18 +77,27 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         filterExt,
         q,
         selected,
-        project,
+        connection,
         loading,
       },
       actions: {
-        setProject,
+        setConnection,
         refreshTree,
         select: (entry?: FileEntry) => setSelected(entry),
         setFilters: (filters: string[]) => setFilterExt(filters),
         setQuery: (value: string) => setQ(value),
       },
     }),
-    [entries, filterExt, q, selected, project, loading, setProject, refreshTree]
+    [
+      entries,
+      filterExt,
+      q,
+      selected,
+      connection,
+      loading,
+      setConnection,
+      refreshTree,
+    ]
   );
 
   return (
