@@ -442,7 +442,40 @@ export default function ControlsPane() {
         if (!file.type.startsWith("image/") && !(isVideoUpscaler && file.type.startsWith("video/"))) {
           throw new Error("Please upload a valid file for this upscaler.");
         }
-        const url = await uploadToFal(file);
+
+        let fileToUpload = file;
+
+        // Check video dimensions and resize if needed
+        if (isVideoUpscaler && file.type.startsWith("video/")) {
+          const { getVideoDimensions } = await import("../lib/video");
+          const { width, height } = await getVideoDimensions(file);
+
+          if (width > 1080 && height > 1080) {
+            if (!connection) {
+              throw new Error("Connect to a workspace to resize large videos.");
+            }
+            // Resize needed
+            setStatus("Resizing video to fit 1080p...");
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch(`${connection.apiBase}/resize-video`, {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err.error || "Failed to resize video");
+            }
+
+            const blob = await response.blob();
+            fileToUpload = new File([blob], file.name, { type: "video/mp4" });
+            setStatus(null);
+          }
+        }
+
+        const url = await uploadToFal(fileToUpload);
         setUpscaleSource((prev) => ({
           ...prev,
           uploading: false,
@@ -450,14 +483,16 @@ export default function ControlsPane() {
           error: null,
         }));
       } catch (error) {
+        console.error("Upload error:", error);
         setUpscaleSource((prev) => ({
           ...prev,
           uploading: false,
           error: error instanceof Error ? error.message : "Upload failed.",
         }));
+        setStatus(null);
       }
     },
-    [isVideoUpscaler, registerPreview, releasePreview]
+    [isVideoUpscaler, registerPreview, releasePreview, connection]
   );
 
   const handleStartFrameDrop = useCallback(
@@ -882,8 +917,8 @@ export default function ControlsPane() {
                   }
                 }}
                 className={`flex-1 rounded-md py-1.5 text-xs font-semibold capitalize transition-all ${activeTab === tab
-                    ? "bg-slate-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
+                  ? "bg-slate-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
                   }`}
               >
                 {tab === "upscale" ? "Other" : tab}
@@ -1445,6 +1480,11 @@ export default function ControlsPane() {
                       <p className="truncate max-w-[200px] text-slate-300">
                         {upscaleSource.name}
                       </p>
+                      {upscaleSource.error ? (
+                        <p className="mt-1 text-[10px] text-rose-400">
+                          {upscaleSource.error}
+                        </p>
+                      ) : null}
                       <button
                         type="button"
                         className="mt-3 rounded-full border border-white/10 px-3 py-1 text-slate-300 hover:bg-white/10"

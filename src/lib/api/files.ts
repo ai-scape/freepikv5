@@ -18,7 +18,7 @@ export type WorkspaceConnection = {
 const defaultApiBase = import.meta.env.VITE_FILE_API_BASE?.replace(/\/$/, "");
 const defaultToken = import.meta.env.VITE_FILE_API_TOKEN;
 
-function authHeaders(token?: string) {
+function authHeaders(token?: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -78,9 +78,12 @@ export async function uploadFile(
   blob: Blob
 ): Promise<void> {
   const url = new URL("/files", connection.apiBase);
+  // Pass metadata in query params so server can process stream immediately
+  url.searchParams.set("workspace", connection.workspaceId);
+  url.searchParams.set("path", relPath);
+
   const form = new FormData();
-  form.append("workspace", connection.workspaceId);
-  form.append("path", relPath);
+  // We don't need to append workspace/path to form anymore
   const filename =
     relPath.split("/").filter(Boolean).pop() ?? `upload-${Date.now()}`;
   form.append("file", blob, filename);
