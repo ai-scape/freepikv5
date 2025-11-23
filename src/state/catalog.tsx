@@ -49,6 +49,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
           nextEntries[0]
         );
       });
+    } catch (error) {
+      console.error(error);
+      setEntries([]);
+      setSelected(undefined);
     } finally {
       setLoading(false);
     }

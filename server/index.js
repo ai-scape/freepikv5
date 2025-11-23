@@ -7,6 +7,17 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import mime from "mime-types";
+import dotenv from "dotenv";
+
+// Load env files: .env.server overrides .env if both exist.
+dotenv.config({
+  path: path.resolve(process.cwd(), ".env.server"),
+  override: true,
+});
+dotenv.config({
+  path: path.resolve(process.cwd(), ".env"),
+  override: false,
+});
 
 const PORT = Number(process.env.FILE_API_PORT ?? 8787);
 const STORAGE_ROOT = path.resolve(

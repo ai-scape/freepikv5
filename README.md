@@ -1,12 +1,12 @@
 # AI Asset Studio
 
-> 🎨 A browser-based AI studio for generating images and videos using FAL and KIE AI models
+> 🎨 A React + Fastify setup for generating images and videos using FAL and KIE AI models, backed by a lightweight file API server.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ What is this?
 
-AI Asset Studio is a powerful yet simple tool that lets you generate AI-powered images and videos directly in your browser. No complicated setup, no servers to maintain - just open the app, pick a folder, and start creating!
+AI Asset Studio is a powerful yet simple tool that lets you generate AI-powered images and videos. A small file API server handles storage so the browser can stay focused on generation and preview. Run one command to start both the frontend and the file server, connect to a workspace, and start creating.
 
 **Perfect for:**
 - 🎬 Video creators and editors
@@ -14,7 +14,7 @@ AI Asset Studio is a powerful yet simple tool that lets you generate AI-powered 
 - 📸 Content creators
 - 🚀 Anyone who wants to explore AI generation
 
-## 🚀 Getting Started in 3 Simple Steps
+## 🚀 Getting Started in 4 Simple Steps
 
 ### 1. Install & Run
 
@@ -22,32 +22,40 @@ AI Asset Studio is a powerful yet simple tool that lets you generate AI-powered 
 # Install dependencies
 npm install
 
-# Start the development server
-npm run dev
+# Start frontend (Vite) + file server together
+npm run dev:all
 ```
 
-Open your browser to `http://localhost:5173`
+Frontend: `http://localhost:5173`  
+File API: `http://localhost:8787` (writes to `./data` by default)
 
-**Important:** Use Chrome, Edge, or another Chromium-based browser. Safari and Firefox don't support the file system features we need.
+Use Chrome or Edge for best performance; the app no longer depends on the File System Access API, so other modern browsers work too.
 
-### 2. Set Up Your API Keys
-
-Create a file called `.env.local` in the project root:
+### 2. Set Up Frontend Env (.env.local)
 
 ```env
 VITE_FAL_KEY=your_fal_api_key_here
 VITE_KIE_KEY=your_kie_api_key_here
+VITE_FILE_API_BASE=http://localhost:8787
+VITE_FILE_API_TOKEN=devtoken
 ```
 
-**Get your keys:**
-- **FAL.ai:** Sign up at [fal.ai](https://fal.ai) → Dashboard → API Keys
-- **KIE.ai:** Sign up at [kie.ai](https://kie.ai) → Account Settings → Generate API Key
+### 3. Set Up Server Env (optional)
 
-### 3. Pick a Project Folder
+The file API server reads standard env vars; defaults are fine for local dev.
 
-1. Click **"Pick Folder"** in the top bar
-2. Select where you want to save your generated files
-3. Grant permission when prompted
+- `FILE_API_PORT=8787`
+- `FILE_STORAGE_ROOT=./data`
+- `FILE_API_TOKEN=devtoken` (should match `VITE_FILE_API_TOKEN`)
+- `FILE_API_CORS_ORIGIN=http://localhost:5173`
+- `FILE_MAX_SIZE_MB=1024`
+
+### 4. Connect a Workspace
+
+1. In the top bar, enter your file API URL (defaults to `http://localhost:8787`).
+2. Enter/select a workspace id (defaults to `default` or create a new one).
+3. Paste the token you set on the server.
+4. Click **Connect**. The UI will load the workspace file list automatically.
 
 That's it! You're ready to create. 🎉
 
@@ -73,12 +81,12 @@ For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
 
 ## 🎯 Key Features
 
-### ✅ **Zero Setup** - No backend, no databases, no complicated configuration
-### ✅ **Direct to Disk** - Files save straight to your computer
+### ✅ **One Command Dev** - `npm run dev:all` starts frontend + file API server
+### ✅ **Workspace Storage** - Files organized on the server (`images/YYYY-MM-DD`, `videos/YYYY-MM-DD`)
 ### ✅ **20+ AI Models** - Video, image, and upscaling models included
 ### ✅ **Smart Controls** - UI automatically adapts to each model's parameters
 ### ✅ **Built-in Browser** - Browse, preview, and search your generated files
-### ✅ **Persistent** - Your project folder is remembered between sessions
+### ✅ **Persistent** - Workspace and token are remembered between sessions
 
 ## 🎬 Available Models
 
@@ -151,7 +159,7 @@ Each model exposes different controls:
 
 Files are automatically organized:
 ```
-your-project-folder/
+workspace-root/
 ├── images/
 │   ├── 2025-11-20/
 │   └── 2025-11-21/
@@ -162,45 +170,44 @@ your-project-folder/
 
 ## 🛟 Troubleshooting
 
-### Can't pick a folder?
-- ✅ Use Chrome or Edge (Chromium browsers)
-- ❌ Safari and Firefox don't support File System Access API
+### Can't connect to workspace?
+- Make sure `npm run dev:server` (or `dev:all`) is running on `FILE_API_PORT`.
+- Confirm `VITE_FILE_API_BASE` matches the running server URL.
+- Ensure `VITE_FILE_API_TOKEN` matches `FILE_API_TOKEN` on the server.
+- If the server is remote, add its origin to `FILE_API_CORS_ORIGIN`.
 
 ### API key errors?
-- Check `.env.local` file exists and keys are correct  
-- Restart dev server after changing `.env.local`
-- Ensure keys start with `VITE_`
+- Check `.env.local` file exists and keys are correct.  
+- Restart dev server after changing `.env.local`.
+- Ensure keys start with `VITE_`.
 
 ### Generation failing?
-- Check browser console (F12) for errors
-- Verify your API key has available credits
-- Try a different model or simpler prompt
-- Check file sizes (max ~20MB for uploads)
+- Check browser console (F12) for errors.
+- Verify your API key has available credits.
+- Try a different model or simpler prompt.
+- Check file sizes (upload limit is controlled by `FILE_MAX_SIZE_MB` on the server).
 
 ### Slow generations?
-- High-quality models take 30-90 seconds
-- Check your internet connection
-- Some models have queue times during peak hours
+- High-quality models take 30-90 seconds.
+- Check your internet connection.
+- Some models have queue times during peak hours.
 
 For more help, see the [User Guide](docs/USER_GUIDE.md).
 
 ## 🏗️ Project Structure
 
 ```
+server/                # Fastify file API (storage, streaming, workspaces)
 src/
 ├── app/               # Main application shell
-├── components/        # UI components
-│   ├── ControlsPane.tsx    # Model selection & generation controls
-│   ├── FileBrowser.tsx     # File list & search
-│   ├── PreviewPane.tsx     # File preview
-│   └── ProjectBar.tsx      # Folder picker & permissions  
-├── fs/                # File system utilities
-├── lib/               # Core logic
-│   ├── models.json         # Video model catalog
-│   ├── image-models.ts     # Image model catalog
-│   ├── pricing.ts          # Model pricing info
-│   └── providers/          # API integrations (FAL, KIE)
-└── state/             # React context for app state
+├── components/        # UI components (ProjectBar connects to workspace)
+├── lib/               # Core logic and APIs
+│   ├── api/files.ts       # File API client + types
+│   ├── models.json        # Video model catalog
+│   ├── image-models.ts    # Image model catalog
+│   ├── pricing.ts         # Model pricing info
+│   └── providers/         # API integrations (FAL, KIE)
+└── state/             # React context for app state (catalog, workspace)
 ```
 
 ## 🚢 Deployment
@@ -211,15 +218,7 @@ Build for production:
 npm run build
 ```
 
-Deploy the `dist/` folder to:
-- Vercel
-- Netlify  
-- Cloudflare Pages
-- Any static hosting service
-
-**Requirements:**
-- Must be served over HTTPS
-- Set CSP to allow `https://fal.run` and `https://api.kie.ai`
+Deploy the frontend (`dist/`) alongside the file API server. Any host works as long as the frontend can reach the server over HTTPS and CORS is configured. Remember to set CSP to allow `https://fal.run` and `https://api.kie.ai`.
 
 ## 📚 Documentation
 
@@ -239,10 +238,9 @@ MIT License - feel free to use this for your own projects!
 
 ## ⚡ Technical Notes
 
-- **No Server Required** - 100% client-side, no backend needed
-- **File System Access API** - Direct disk writes without downloads folder
-- **IndexedDB** - Persist folder handles between sessions  
-- **OPFS Fallback** - Origin Private File System when folder access denied
+- **File API Server** - Fastify handles uploads, listing, and Range-enabled streaming
+- **Workspace Model** - Files saved to `images/YYYY-MM-DD` or `videos/YYYY-MM-DD` under `FILE_STORAGE_ROOT`
+- **Auth** - Bearer token (`FILE_API_TOKEN` / `VITE_FILE_API_TOKEN`); token allowed via query for media playback
 - **React 19** - Latest React with TypeScript
 - **Vite** - Lightning-fast development and builds
 - **TailwindCSS** - Utility-first responsive styling

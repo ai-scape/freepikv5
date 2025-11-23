@@ -258,6 +258,7 @@ export default function PreviewPane() {
 
     try {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.decoding = "async";
       img.src = previewUrl;
       await img.decode();
@@ -408,6 +409,7 @@ export default function PreviewPane() {
             key={previewUrl}
             ref={videoRef}
             src={previewUrl}
+            crossOrigin="anonymous"
             controls
             draggable={selected.kind === "file"}
             onDragStart={handleDragStart}

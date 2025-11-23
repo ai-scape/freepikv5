@@ -25,7 +25,7 @@ export default function FileBrowser() {
         filterExt.includes(entry.ext);
       return matchesQuery && matchesExt;
     });
-  }, [entries, q, filterExt, project]);
+  }, [entries, q, filterExt, connection]);
 
   const toggleFilter = (ext: string) => {
     setFilters(
