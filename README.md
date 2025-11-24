@@ -104,6 +104,7 @@ For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
 
 ### Image Generation
 - **Flux Kontext Pro/Max** - Professional-grade images & editing
+- **Qwen Image Edit** - Advanced image editing and transformation
 - **Nano Banana** - Creative artistic images
 - **Seedream V4** - ByteDance image editing
 
@@ -115,6 +116,9 @@ For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
 See the full model catalog in the [Technical Docs](#project-structure) section below.
 
 ## 💡 Tips for Great Results
+
+### 📤 Drag and Drop
+You can now drag and drop files directly from your computer into the File Browser to upload them instantly! This makes it easy to bring in your own assets for editing or reference.
 
 ### ✍️ Writing Prompts
 

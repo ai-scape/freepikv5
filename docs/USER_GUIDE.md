@@ -52,7 +52,7 @@ The app has three main sections:
 #### Middle Panel: File Browser
 - Shows all your generated files
 - Search and filter by file type
-- Drag files to other apps
+- **Drag & Drop:** Drag files from your computer to upload, or drag files out to other apps
 - Click to preview
 
 #### Right Panel: Preview
