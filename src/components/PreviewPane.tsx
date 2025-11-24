@@ -548,13 +548,28 @@ export default function PreviewPane() {
 
         {previewUrl ? (
           <div className="flex gap-2">
-            <a
-              href={previewUrl}
-              download={selected.name}
+            <button
+              onClick={async () => {
+                if (!previewUrl || !selected) return;
+                try {
+                  const response = await fetch(previewUrl);
+                  const blob = await response.blob();
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement("a");
+                  anchor.href = url;
+                  anchor.download = selected.name;
+                  document.body.appendChild(anchor);
+                  anchor.click();
+                  document.body.removeChild(anchor);
+                  URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error("Download failed:", error);
+                }
+              }}
               className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
             >
               Download
-            </a>
+            </button>
             <a
               href={previewUrl}
               target="_blank"
