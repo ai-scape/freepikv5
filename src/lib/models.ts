@@ -100,13 +100,7 @@ const jsonSpecs =
           if (!unified.start_frame_url) {
             throw new Error("Start frame is required for Kling 2.5 Turbo Pro (FAL).");
           }
-          const durationRaw = unified.duration ?? "5";
-          const duration =
-            typeof durationRaw === "number"
-              ? durationRaw
-              : Number.isFinite(Number(durationRaw))
-                ? Number(durationRaw)
-                : 5;
+          const duration = String(unified.duration ?? "5");
           const input: Record<string, FalInputValue> = {
             prompt: unified.prompt,
             image_url: unified.start_frame_url,
