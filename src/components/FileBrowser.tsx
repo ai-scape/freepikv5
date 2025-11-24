@@ -14,6 +14,8 @@ export default function FileBrowser() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   const handleRename = async (entry: FileEntry) => {
     if (!editName.trim() || editName === entry.name) {
@@ -38,6 +40,58 @@ export default function FileBrowser() {
     } catch (error) {
       console.error(error);
       alert("Failed to delete file");
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!connection) return;
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (!connection) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    setUploadStatus(`Uploading ${files.length} file(s)...`);
+
+    try {
+      // Import uploadFile dynamically or use the one from props/context if available
+      // But we can import it directly as we are in the same module scope as imports
+      const { uploadFile } = await import("../lib/api/files");
+
+      for (const file of files) {
+        // Determine relative path. If we are in a subdirectory view, we might want to upload there.
+        // But currently the file browser seems to show a flat list or filtered list.
+        // The `entries` are flat. The `uploadFile` takes a relPath.
+        // We'll upload to the root for now, or we could try to infer current directory if we had one.
+        // Since `entries` is flat from `useCatalog`, we'll just upload to root.
+        // Wait, `entries` has `relPath`.
+        // Let's just upload to root for simplicity as per current architecture, 
+        // or if we want to support folders later we can.
+        // Actually, let's just use the filename as relPath for root.
+
+        await uploadFile(connection, file.name, file);
+      }
+      await refreshTree();
+      setUploadStatus(null);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      setUploadStatus("Upload failed");
+      setTimeout(() => setUploadStatus(null), 3000);
     }
   };
 
@@ -122,7 +176,28 @@ export default function FileBrowser() {
         ) : null}
       </div>
 
-      <div className="relative flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20">
+      <div
+        className={`relative flex-1 overflow-auto rounded-lg border transition-colors ${isDragging
+            ? "border-sky-400 bg-sky-500/10"
+            : "border-white/10 bg-black/20"
+          }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="rounded-xl border border-sky-500/30 bg-black/80 p-6 text-center shadow-2xl">
+              <div className="mb-2 text-4xl">📥</div>
+              <div className="text-lg font-semibold text-sky-200">Drop files to upload</div>
+            </div>
+          </div>
+        )}
+        {uploadStatus && (
+          <div className="absolute top-2 right-2 z-20 rounded-md bg-sky-600 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+            {uploadStatus}
+          </div>
+        )}
         {loading ? (
           <div className="flex h-full items-center justify-center">
             <Spinner />
