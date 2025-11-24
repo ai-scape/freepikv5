@@ -725,6 +725,7 @@ export default function ControlsPane() {
           end_frame_url: endFrame.url,
           reference_image_urls: referenceUploads.map(r => r.url).filter(Boolean) as string[],
           seed: seed ? parseInt(seed, 10) : undefined,
+          duration: paramValues.duration as string | number | undefined,
         };
 
         payload = buildModelInput(modelSpec, unifiedPayload);
