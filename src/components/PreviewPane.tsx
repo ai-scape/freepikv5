@@ -4,15 +4,7 @@ import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { getFileUrl, uploadFile } from "../lib/api/files";
 import ImageComparer from "./ImageComparer";
 
-function formatBytes(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
 
-function formatDate(value: number) {
-  return new Date(value).toLocaleString();
-}
 
 export default function PreviewPane({
   isFullScreen,
@@ -248,8 +240,8 @@ export default function PreviewPane({
     );
   }, []);
 
-  const handleCropDownload = useCallback(async () => {
-    if (!selected || selected.kind !== "file" || !selected.mime.startsWith("image")) {
+  const handleCropSave = useCallback(async () => {
+    if (!connection || !selected || selected.kind !== "file" || !selected.mime.startsWith("image")) {
       setCropStatus("Cropping is only available for images.");
       return;
     }
@@ -311,20 +303,18 @@ export default function PreviewPane({
         }, mime);
       });
 
-      const url = URL.createObjectURL(blob);
-      const baseName = selected.name.replace(/\.[^.]+$/, "");
+      const directoryParts = selected.relPath.split("/");
+      const filename = directoryParts.pop() ?? selected.name;
+      const baseDir = directoryParts.join("/");
+      const baseName = filename.replace(/\.[^.]+$/, "");
       const suffix = cropAspect.replace(/:/g, "x");
       const ext = mime.includes("jpeg") ? "jpg" : mime.split("/").pop() || "png";
-      const downloadName = `${baseName}_crop_${suffix}.${ext}`;
+      const outputName = `${baseName}_crop_${suffix}.${ext}`;
+      const relPath = baseDir ? `${baseDir}/${outputName}` : outputName;
 
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = downloadName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-      setCropStatus(`Downloaded cropped image (${cropAspect}).`);
+      await uploadFile(connection, relPath, blob);
+      await refreshTree(selected.relPath);
+      setCropStatus(`Saved crop to ${relPath}`);
     } catch (error) {
       setCropStatus(
         error instanceof Error ? error.message : "Unable to crop image."
@@ -332,7 +322,7 @@ export default function PreviewPane({
     } finally {
       setCropBusy(false);
     }
-  }, [cropAspect, parseAspectRatio, previewUrl, selected]);
+  }, [cropAspect, parseAspectRatio, previewUrl, selected, connection, refreshTree]);
 
   useEffect(() => {
     if (!connection || !selected || selected.kind === "dir") {
@@ -347,6 +337,24 @@ export default function PreviewPane({
   }, [connection, selected]);
 
 
+
+  const handleDownload = async () => {
+    if (!previewUrl || !selected) return;
+    try {
+      const response = await fetch(previewUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = selected.name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
+  };
 
   if (!connection) {
     return (
@@ -509,44 +517,43 @@ export default function PreviewPane({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2 mb-3 shrink-0">
+    <div className="relative flex h-full flex-col">
+      {isFullScreen && onToggleFullScreen && (
         <button
-          onClick={() => setMode("preview")}
-          className="px-4 py-2 text-xs font-semibold transition-colors border-b-2 border-sky-500 text-white"
+          onClick={onToggleFullScreen}
+          className="absolute right-4 top-4 z-50 rounded-lg bg-black/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-red-500/80"
         >
-          Preview
+          Exit Full Screen
         </button>
-        <button
-          onClick={() => setMode("compare")}
-          className="px-4 py-2 text-xs font-semibold transition-colors text-slate-400 hover:text-white"
-        >
-          Compare
-        </button>
-        {onToggleFullScreen && (
-          <button
-            onClick={onToggleFullScreen}
-            className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
-          >
-            {isFullScreen ? "Exit Full Screen" : "Full Screen"}
-          </button>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto min-h-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-base font-semibold text-white">
-              {selected.name}
-            </div>
-            <div className="text-xs text-slate-400">{selected.relPath}</div>
-          </div>
-          <div className="text-right text-xs text-slate-400">
-            <div>{formatBytes(selected.size)}</div>
-            <div>{formatDate(selected.mtime)}</div>
-          </div>
-        </div>
+      )}
 
-        <div className="flex-1 rounded-2xl border border-white/10 bg-black/30 p-4">
+      {!isFullScreen && (
+        <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2 mb-3 shrink-0">
+          <button
+            onClick={() => setMode("preview")}
+            className="px-4 py-2 text-xs font-semibold transition-colors border-b-2 border-sky-500 text-white"
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => setMode("compare")}
+            className="px-4 py-2 text-xs font-semibold transition-colors text-slate-400 hover:text-white"
+          >
+            Compare
+          </button>
+          {onToggleFullScreen && (
+            <button
+              onClick={onToggleFullScreen}
+              className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            >
+              Full Screen
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto min-h-0">
+        <div className="flex-1 min-h-0 rounded-2xl border border-white/10 bg-black/30 p-4">
           {error ? (
             <div className="text-sm text-rose-300">{error}</div>
           ) : loading || !previewUrl ? (
@@ -575,121 +582,111 @@ export default function PreviewPane({
           )}
         </div>
 
-        {selected && selected.mime.startsWith("video") ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-200">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-white">Frame extraction</span>
-              <span className="text-[11px] text-slate-400">
-                Scrub to any time, then capture a PNG.
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!canCapture || captureBusy}
-                onClick={() => void captureFrame(undefined, "Extracting current frame…")}
-                className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {captureBusy ? "Working…" : "Extract current frame"}
-              </button>
-              <button
-                type="button"
-                disabled={!canCapture || captureBusy}
-                onClick={() => void captureFrame(0, "Extracting start frame…")}
-                className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save start frame
-              </button>
-              <button
-                type="button"
-                disabled={!canCapture || captureBusy || !videoDuration}
-                onClick={() => {
-                  const endTime =
-                    videoDuration ??
-                    (videoRef.current?.duration && Number.isFinite(videoRef.current.duration)
-                      ? videoRef.current.duration
-                      : 0);
-                  void captureFrame(Math.max(endTime - 0.001, 0), "Extracting end frame…");
-                }}
-                className="rounded-lg border border-white/10 px-3 py-2 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save end frame
-              </button>
-            </div>
-            {captureStatus ? (
-              <div className="mt-2 rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px]">
-                {captureStatus}
+        {!isFullScreen && (
+          <>
+            {selected && selected.mime.startsWith("video") ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-slate-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={!canCapture || captureBusy}
+                      onClick={() => void captureFrame(undefined, "Extracting current frame…")}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {captureBusy ? "..." : "Extract"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canCapture || captureBusy}
+                      onClick={() => void captureFrame(0, "Extracting start frame…")}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Start
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canCapture || captureBusy || !videoDuration}
+                      onClick={() => {
+                        const endTime =
+                          videoDuration ??
+                          (videoRef.current?.duration && Number.isFinite(videoRef.current.duration)
+                            ? videoRef.current.duration
+                            : 0);
+                        void captureFrame(Math.max(endTime - 0.001, 0), "Extracting end frame…");
+                      }}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      End
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload()}
+                    className="rounded-lg border border-white/10 p-1.5 text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                    title="Download original"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+                {captureStatus ? (
+                  <div className="mt-2 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px]">
+                    {captureStatus}
+                  </div>
+                ) : null}
               </div>
             ) : null}
-          </div>
-        ) : null}
 
-        {previewUrl ? (
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                if (!previewUrl || !selected) return;
-                try {
-                  const response = await fetch(previewUrl);
-                  const blob = await response.blob();
-                  const url = URL.createObjectURL(blob);
-                  const anchor = document.createElement("a");
-                  anchor.href = url;
-                  anchor.download = selected.name;
-                  document.body.appendChild(anchor);
-                  anchor.click();
-                  document.body.removeChild(anchor);
-                  URL.revokeObjectURL(url);
-                } catch (error) {
-                  console.error("Download failed:", error);
-                }
-              }}
-              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
-            >
-              Download
-            </button>
-            <a
-              href={previewUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
-            >
-              Open in New Tab
-            </a>
-          </div>
-        ) : null}
-
-        {selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
-          <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-semibold text-white">Center crop</span>
-              <select
-                value={cropAspect}
-                onChange={(event) => setCropAspect(event.target.value)}
-                className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-              >
-                {cropPresets.map((preset) => (
-                  <option key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={cropBusy}
-                onClick={() => void handleCropDownload()}
-                className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {cropBusy ? "Cropping…" : "Download cropped"}
-              </button>
-            </div>
-            {cropStatus ? (
-              <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
-                {cropStatus}
+            {selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
+              <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={cropAspect}
+                      onChange={(event) => setCropAspect(event.target.value)}
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                    >
+                      {cropPresets.map((preset) => (
+                        <option key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={cropBusy}
+                      onClick={() => void handleCropSave()}
+                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {cropBusy ? "Cropping…" : "Crop"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownload()}
+                    className="rounded-lg border border-white/10 p-1.5 text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                    title="Download original"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+                {cropStatus ? (
+                  <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
+                    {cropStatus}
+                  </div>
+                ) : null}
               </div>
             ) : null}
-          </div>
-        ) : null}
+          </>
+        )}
       </div>
     </div>
   );
