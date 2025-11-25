@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useCatalog } from "../state/useCatalog";
-import { type FileEntry } from "../lib/api/files";
+import { type FileEntry, getFileUrl } from "../lib/api/files";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { Spinner } from "./ui/Spinner";
 
-const EXT_FILTERS = ["png", "jpg", "webp", "mp4", "webm"];
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
+const VIDEO_EXTS = ["mp4", "webm", "mov", "mkv"];
 
 export default function FileBrowser() {
   const {
@@ -12,6 +13,7 @@ export default function FileBrowser() {
     actions: { setQuery, setFilters, select, refreshTree, rename, remove },
   } = useCatalog();
 
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -69,21 +71,9 @@ export default function FileBrowser() {
     setUploadStatus(`Uploading ${files.length} file(s)...`);
 
     try {
-      // Import uploadFile dynamically or use the one from props/context if available
-      // But we can import it directly as we are in the same module scope as imports
       const { uploadFile } = await import("../lib/api/files");
 
       for (const file of files) {
-        // Determine relative path. If we are in a subdirectory view, we might want to upload there.
-        // But currently the file browser seems to show a flat list or filtered list.
-        // The `entries` are flat. The `uploadFile` takes a relPath.
-        // We'll upload to the root for now, or we could try to infer current directory if we had one.
-        // Since `entries` is flat from `useCatalog`, we'll just upload to root.
-        // Wait, `entries` has `relPath`.
-        // Let's just upload to root for simplicity as per current architecture, 
-        // or if we want to support folders later we can.
-        // Actually, let's just use the filename as relPath for root.
-
         await uploadFile(connection, file.name, file);
       }
       await refreshTree();
@@ -111,13 +101,22 @@ export default function FileBrowser() {
     });
   }, [entries, q, filterExt, connection]);
 
-  const toggleFilter = (ext: string) => {
-    setFilters(
-      filterExt.includes(ext)
-        ? filterExt.filter((value) => value !== ext)
-        : [...filterExt, ext]
-    );
+  const toggleGroup = (group: "images" | "videos") => {
+    const groupExts = group === "images" ? IMAGE_EXTS : VIDEO_EXTS;
+    const allSelected = groupExts.every((ext) => filterExt.includes(ext));
+
+    if (allSelected) {
+      // Remove all extensions from this group
+      setFilters(filterExt.filter((ext) => !groupExts.includes(ext)));
+    } else {
+      // Add all extensions from this group (avoiding duplicates)
+      const newFilters = new Set([...filterExt, ...groupExts]);
+      setFilters(Array.from(newFilters));
+    }
   };
+
+  const isImagesActive = IMAGE_EXTS.every((ext) => filterExt.includes(ext));
+  const isVideosActive = VIDEO_EXTS.every((ext) => filterExt.includes(ext));
 
   if (!connection) {
     return (
@@ -142,6 +141,30 @@ export default function FileBrowser() {
           placeholder="Search files"
           className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
         />
+        <div className="flex items-center rounded-lg border border-white/10 bg-black/40 p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${viewMode === "list"
+              ? "bg-white/10 text-white"
+              : "text-slate-400 hover:text-white"
+              }`}
+            title="List View"
+          >
+            ☰
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${viewMode === "grid"
+              ? "bg-white/10 text-white"
+              : "text-slate-400 hover:text-white"
+              }`}
+            title="Grid View"
+          >
+            ⊞
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => refreshTree()}
@@ -152,19 +175,26 @@ export default function FileBrowser() {
       </div>
 
       <div className="flex flex-wrap gap-1 text-xs">
-        {EXT_FILTERS.map((ext) => (
-          <button
-            key={ext}
-            type="button"
-            onClick={() => toggleFilter(ext)}
-            className={`rounded-full px-3 py-1 font-semibold ${filterExt.includes(ext)
+        <button
+          type="button"
+          onClick={() => toggleGroup("images")}
+          className={`rounded-full px-3 py-1 font-semibold transition-colors ${isImagesActive
               ? "bg-sky-500/30 text-white"
-              : "bg-white/10 text-slate-300"
-              }`}
-          >
-            .{ext}
-          </button>
-        ))}
+              : "bg-white/10 text-slate-300 hover:text-white"
+            }`}
+        >
+          Images
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleGroup("videos")}
+          className={`rounded-full px-3 py-1 font-semibold transition-colors ${isVideosActive
+              ? "bg-sky-500/30 text-white"
+              : "bg-white/10 text-slate-300 hover:text-white"
+            }`}
+        >
+          Videos
+        </button>
         {filterExt.length ? (
           <button
             type="button"
@@ -178,8 +208,8 @@ export default function FileBrowser() {
 
       <div
         className={`relative flex-1 overflow-auto rounded-lg border transition-colors ${isDragging
-            ? "border-sky-400 bg-sky-500/10"
-            : "border-white/10 bg-black/20"
+          ? "border-sky-400 bg-sky-500/10"
+          : "border-white/10 bg-black/20"
           }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -218,6 +248,71 @@ export default function FileBrowser() {
           <div className="p-4 text-center text-sm text-slate-300">
             <div className="mb-1">🔍 No files match your search</div>
             <div className="text-xs text-slate-400">Try a different search term or clear your filters</div>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3">
+            {filteredEntries.map((entry) => {
+              const url = getFileUrl(connection, entry.relPath, { includeToken: true });
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  draggable={entry.kind === "file"}
+                  onDragStart={(event) => {
+                    if (entry.kind === "file") {
+                      event.dataTransfer.setData(
+                        FILE_ENTRY_MIME,
+                        JSON.stringify({
+                          workspaceId: connection.workspaceId,
+                          path: entry.relPath,
+                          name: entry.name,
+                          mime: entry.mime,
+                        })
+                      );
+                      event.dataTransfer.effectAllowed = "copy";
+                    }
+                  }}
+                  onClick={() => select(entry)}
+                  className={`group relative flex aspect-square flex-col overflow-hidden rounded-lg border border-white/10 bg-black/40 transition hover:border-sky-500/50 ${selected?.id === entry.id ? "ring-2 ring-sky-500" : ""
+                    }`}
+                >
+                  <div className="flex-1 w-full overflow-hidden bg-white/5">
+                    {entry.kind === "dir" ? (
+                      <div className="flex h-full items-center justify-center text-4xl">
+                        📁
+                      </div>
+                    ) : entry.mime.startsWith("video") ? (
+                      <video
+                        src={url}
+                        className="h-full w-full object-cover"
+                        preload="metadata"
+                        muted
+                      />
+                    ) : (
+                      <img
+                        src={url}
+                        alt={entry.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 backdrop-blur-sm">
+                    <div className="truncate text-xs text-white" title={entry.name}>
+                      {entry.name}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(entry, e)}
+                    className="absolute top-1 right-1 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100"
+                    title="Delete"
+                  >
+                    🗑️
+                  </button>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <ul>
@@ -277,11 +372,6 @@ export default function FileBrowser() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-right text-xs text-slate-400">
-                    <span>
-                      {entry.kind === "dir"
-                        ? "Directory"
-                        : `${(entry.size / 1024).toFixed(1)} kB`}
-                    </span>
                     <button
                       type="button"
                       onClick={(e) => handleDelete(entry, e)}

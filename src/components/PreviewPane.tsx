@@ -14,7 +14,13 @@ function formatDate(value: number) {
   return new Date(value).toLocaleString();
 }
 
-export default function PreviewPane() {
+export default function PreviewPane({
+  isFullScreen,
+  onToggleFullScreen,
+}: {
+  isFullScreen?: boolean;
+  onToggleFullScreen?: () => void;
+}) {
   const {
     state: { selected, connection },
     actions: { refreshTree },
@@ -364,6 +370,14 @@ export default function PreviewPane() {
           >
             Compare
           </button>
+          {onToggleFullScreen && (
+            <button
+              onClick={onToggleFullScreen}
+              className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            >
+              {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+            </button>
+          )}
         </div>
         {mode === "compare" ? (
           <ImageComparer />
@@ -400,6 +414,14 @@ export default function PreviewPane() {
           >
             Compare
           </button>
+          {onToggleFullScreen && (
+            <button
+              onClick={onToggleFullScreen}
+              className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            >
+              {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+            </button>
+          )}
         </div>
         <ImageComparer />
       </div>
@@ -408,14 +430,38 @@ export default function PreviewPane() {
 
   if (!selected) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="max-w-xs rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm">
-          <div className="mb-3 text-4xl">👈</div>
-          <div className="mb-2 font-semibold text-white">
-            No File Selected
-          </div>
-          <div className="text-slate-300">
-            Click on any image or video from the file browser to see a live preview here.
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2 mb-3 shrink-0">
+          <button
+            onClick={() => setMode("preview")}
+            className="px-4 py-2 text-xs font-semibold transition-colors border-b-2 border-sky-500 text-white"
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => setMode("compare")}
+            className="px-4 py-2 text-xs font-semibold transition-colors text-slate-400 hover:text-white"
+          >
+            Compare
+          </button>
+          {onToggleFullScreen && (
+            <button
+              onClick={onToggleFullScreen}
+              className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            >
+              {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+            </button>
+          )}
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="max-w-xs rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm">
+            <div className="mb-3 text-4xl">👈</div>
+            <div className="mb-2 font-semibold text-white">
+              No File Selected
+            </div>
+            <div className="text-slate-300">
+              Click on any image or video from the file browser to see a live preview here.
+            </div>
           </div>
         </div>
       </div>
@@ -424,14 +470,38 @@ export default function PreviewPane() {
 
   if (selected.kind === "dir") {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="max-w-xs rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm">
-          <div className="mb-3 text-4xl">📁</div>
-          <div className="mb-2 font-semibold text-white">
-            Directory Selected
-          </div>
-          <div className="text-slate-300">
-            "{selected.name}" is a folder. Select a file instead to view its contents.
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-1 border-b border-white/10 bg-white/5 px-2 mb-3 shrink-0">
+          <button
+            onClick={() => setMode("preview")}
+            className="px-4 py-2 text-xs font-semibold transition-colors border-b-2 border-sky-500 text-white"
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => setMode("compare")}
+            className="px-4 py-2 text-xs font-semibold transition-colors text-slate-400 hover:text-white"
+          >
+            Compare
+          </button>
+          {onToggleFullScreen && (
+            <button
+              onClick={onToggleFullScreen}
+              className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+            >
+              {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+            </button>
+          )}
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="max-w-xs rounded-lg border border-white/10 bg-white/5 p-6 text-center text-sm">
+            <div className="mb-3 text-4xl">📁</div>
+            <div className="mb-2 font-semibold text-white">
+              Directory Selected
+            </div>
+            <div className="text-slate-300">
+              "{selected.name}" is a folder. Select a file instead to view its contents.
+            </div>
           </div>
         </div>
       </div>
@@ -453,6 +523,14 @@ export default function PreviewPane() {
         >
           Compare
         </button>
+        {onToggleFullScreen && (
+          <button
+            onClick={onToggleFullScreen}
+            className="ml-auto px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+          </button>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto min-h-0">
         <div className="flex items-center justify-between">
