@@ -18,6 +18,38 @@ export default function FileBrowser() {
   const [editName, setEditName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [fileDims, setFileDims] = useState<Record<string, { w: number; h: number }>>({});
+
+  const getFileStyles = (entry: FileEntry) => {
+    if (entry.mime.startsWith("image/")) {
+      return {
+        grid: "border-red-500/50 bg-red-500/5",
+        list: "border-l-red-500/50",
+      };
+    }
+    if (entry.mime.startsWith("video/")) {
+      const dims = fileDims[entry.id];
+      if (!dims)
+        return {
+          grid: "border-white/10 bg-black/40",
+          list: "border-l-transparent",
+        }; // Default until loaded
+      if (dims.h >= 1080) {
+        return {
+          grid: "border-green-500/50 bg-green-500/5",
+          list: "border-l-green-500/50",
+        };
+      }
+      return {
+        grid: "border-blue-500/50 bg-blue-500/5",
+        list: "border-l-blue-500/50",
+      };
+    }
+    return {
+      grid: "border-white/10 bg-black/40",
+      list: "border-l-transparent",
+    };
+  };
 
   const handleRename = async (entry: FileEntry) => {
     if (!editName.trim() || editName === entry.name) {
@@ -253,6 +285,8 @@ export default function FileBrowser() {
           <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3">
             {filteredEntries.map((entry) => {
               const url = getFileUrl(connection, entry.relPath, { includeToken: true });
+              const styles = getFileStyles(entry);
+
               return (
                 <button
                   key={entry.id}
@@ -270,11 +304,12 @@ export default function FileBrowser() {
                         })
                       );
                       event.dataTransfer.effectAllowed = "copy";
+                      event.dataTransfer.setData("DownloadURL", `${entry.mime}:${entry.name}:${url}`);
                     }
                   }}
                   onClick={() => select(entry)}
-                  className={`group relative flex aspect-square flex-col overflow-hidden rounded-lg border border-white/10 bg-black/40 transition hover:border-sky-500/50 ${selected?.id === entry.id ? "ring-2 ring-sky-500" : ""
-                    }`}
+                  className={`group relative flex aspect-square flex-col overflow-hidden rounded-lg border transition ${selected?.id === entry.id ? "ring-2 ring-yellow-500" : ""
+                    } ${styles.grid}`}
                 >
                   <div className="flex-1 w-full overflow-hidden bg-white/5">
                     {entry.kind === "dir" ? (
@@ -287,6 +322,13 @@ export default function FileBrowser() {
                         className="h-full w-full object-cover"
                         preload="metadata"
                         muted
+                        onLoadedMetadata={(e) => {
+                          const target = e.target as HTMLVideoElement;
+                          setFileDims((prev) => ({
+                            ...prev,
+                            [entry.id]: { w: target.videoWidth, h: target.videoHeight },
+                          }));
+                        }}
                       />
                     ) : (
                       <img
@@ -294,6 +336,13 @@ export default function FileBrowser() {
                         alt={entry.name}
                         className="h-full w-full object-cover"
                         loading="lazy"
+                        onLoad={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          setFileDims((prev) => ({
+                            ...prev,
+                            [entry.id]: { w: target.naturalWidth, h: target.naturalHeight },
+                          }));
+                        }}
                       />
                     )}
                   </div>
@@ -340,74 +389,117 @@ export default function FileBrowser() {
           </div>
         ) : (
           <ul>
-            {filteredEntries.map((entry) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  draggable={entry.kind === "file"}
-                  onDragStart={(event) => {
-                    if (entry.kind === "file") {
-                      event.dataTransfer.setData(
-                        FILE_ENTRY_MIME,
-                        JSON.stringify({
-                          workspaceId: connection.workspaceId,
-                          path: entry.relPath,
-                          name: entry.name,
-                          mime: entry.mime,
-                        })
-                      );
-                      event.dataTransfer.effectAllowed = "copy";
-                    }
-                  }}
-                  onClick={() => select(entry)}
-                  className={`group flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm transition hover:bg-white/5 ${selected?.id === entry.id ? "bg-white/10" : ""
-                    }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    {editingId === entry.id ? (
-                      <input
-                        autoFocus
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onBlur={() => handleRename(entry)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRename(entry);
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
-                      />
-                    ) : (
-                      <div
-                        className="font-semibold text-white truncate"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditingId(entry.id);
-                          setEditName(entry.name);
-                        }}
-                      >
-                        {entry.name}
-                        {entry.kind === "dir" ? "/" : ""}
+            {filteredEntries.map((entry) => {
+              const url = getFileUrl(connection, entry.relPath, { includeToken: true });
+              const styles = getFileStyles(entry);
+              const dims = fileDims[entry.id];
+
+              return (
+                <li key={entry.id}>
+                  <button
+                    type="button"
+                    draggable={entry.kind === "file"}
+                    onDragStart={(event) => {
+                      if (entry.kind === "file") {
+                        event.dataTransfer.setData(
+                          FILE_ENTRY_MIME,
+                          JSON.stringify({
+                            workspaceId: connection.workspaceId,
+                            path: entry.relPath,
+                            name: entry.name,
+                            mime: entry.mime,
+                          })
+                        );
+                        event.dataTransfer.effectAllowed = "copy";
+                        event.dataTransfer.setData("DownloadURL", `${entry.mime}:${entry.name}:${url}`);
+                      }
+                    }}
+                    onClick={() => select(entry)}
+                    className={`group flex w-full items-center justify-between gap-3 border-l-4 px-3 py-2 text-left text-sm transition ${selected?.id === entry.id ? "bg-yellow-500/20" : ""
+                      } ${styles.list}`}
+                  >
+                    {/* Hidden media for metadata capture */}
+                    {!dims && entry.kind === "file" && (
+                      <div className="hidden">
+                        {entry.mime.startsWith("video") ? (
+                          <video
+                            src={url}
+                            preload="metadata"
+                            onLoadedMetadata={(e) => {
+                              const target = e.target as HTMLVideoElement;
+                              setFileDims((prev) => ({
+                                ...prev,
+                                [entry.id]: { w: target.videoWidth, h: target.videoHeight },
+                              }));
+                            }}
+                          />
+                        ) : entry.mime.startsWith("image") ? (
+                          <img
+                            src={url}
+                            loading="lazy"
+                            onLoad={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              setFileDims((prev) => ({
+                                ...prev,
+                                [entry.id]: { w: target.naturalWidth, h: target.naturalHeight },
+                              }));
+                            }}
+                          />
+                        ) : null}
                       </div>
                     )}
-                    <div className="text-xs text-slate-400 truncate">
-                      {entry.relPath}
+
+                    <div className="flex-1 min-w-0">
+                      {editingId === entry.id ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onBlur={() => handleRename(entry)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRename(entry);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <div
+                            className="font-semibold text-white truncate"
+                            title={entry.name}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditingId(entry.id);
+                              setEditName(entry.name);
+                            }}
+                          >
+                            {entry.name}
+                            {entry.kind === "dir" ? "/" : ""}
+                          </div>
+                          {dims && (
+                            <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono">
+                              {dims.w}x{dims.h}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-right text-xs text-slate-400">
-                    <button
-                      type="button"
-                      onClick={(e) => handleDelete(entry, e)}
-                      className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-red-400"
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </button>
-              </li>
-            ))}
+                    <div className="flex items-center gap-2 text-right text-xs text-slate-400">
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(entry, e)}
+                        className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-red-400"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
