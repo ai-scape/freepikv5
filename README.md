@@ -63,25 +63,37 @@ The server loads `.env.server` (preferred) and then `.env` automatically. No nee
 
 That's it! You're ready to create. 🎉
 
-## 📖 How to Use
+## 📖 User Guide
 
-### Quick Video Generation
+### 1. Connecting to a Workspace
+To start using the application, you need to connect to a workspace:
+1.  **API URL**: Enter your File API URL (e.g., `http://localhost:8787`).
+2.  **Workspace ID**: Enter a name for your workspace (e.g., `my-project`).
+3.  **Token**: Enter your API token if required.
+4.  Click **Connect**.
 
-1. Select a video model (try "kling-2.5-pro")
-2. Upload a start frame image (drag & drop or click browse)
-3. Write what you want to happen: "A butterfly lands on a flower"
-4. Click **Generate**
-5. Wait 30-60 seconds
-6. Your video appears in the file browser!
+### 2. Generating Assets
+Use the panel on the left to create content:
+-   **Image Tab**: Select a model, enter a prompt, and configure settings like aspect ratio.
+-   **Video Tab**: Generate videos from text or animate existing images.
+-   **Upscale Tab**: Enhance the resolution of your generated images.
 
-### Quick Image Generation
+### 3. Managing Files
+The central pane shows your generated files:
+-   **View Modes**: Toggle between Grid (thumbnails) and List (details) views.
+-   **Filtering**: Use the "Images" and "Videos" pills to filter content.
+-   **Drag & Drop**: Drag files from the browser to your desktop to download them.
+-   **Video Preview**: Hover over video thumbnails in grid view to play a preview.
+-   **Deletion**: Click the trash icon to delete files instantly.
 
-1. Select an image model (try "flux-kontext-pro")
-2. Write a detailed description: "A photorealistic portrait of a cat wearing a wizard hat"
-3. Click **Generate**
-4. Your image is ready in seconds!
+### 4. Preview & Compare
+The right-side pane offers detailed viewing options:
+-   **Preview Mode**: View full-size images or play videos. Extract frames from videos or crop images.
+-   **Compare Mode**: Drag two images into the comparison slots to use a slider for side-by-side comparison.
+-   **Full Screen**: Toggle full-screen mode for an immersive view.
 
-For more detailed instructions, see the [**User Guide**](docs/USER_GUIDE.md)
+### 5. KIE Credits
+Monitor your usage limits with the credit tracker in the top bar. Click the refresh icon to update your balance manually.
 
 ## 🎯 Key Features
 
@@ -186,7 +198,7 @@ workspace-root/
 - If the server is remote, add its origin to `FILE_API_CORS_ORIGIN`.
 
 ### API key errors?
-- Check `.env.local` file exists and keys are correct.  
+- Check `.env.local` file exists and keys are correct.
 - Restart dev server after changing `.env.local`.
 - Ensure keys start with `VITE_`.
 
@@ -200,8 +212,6 @@ workspace-root/
 - High-quality models take 30-90 seconds.
 - Check your internet connection.
 - Some models have queue times during peak hours.
-
-For more help, see the [User Guide](docs/USER_GUIDE.md).
 
 ## 🏗️ Project Structure
 

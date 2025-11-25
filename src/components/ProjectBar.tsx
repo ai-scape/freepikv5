@@ -10,6 +10,7 @@ import { useCatalog } from "../state/useCatalog";
 import { Tooltip, InfoIcon } from "./ui/Tooltip";
 import { useQueue } from "../state/queue";
 import QueueLog from "./QueueLog";
+import CreditTracker from "./CreditTracker";
 
 const STORAGE_KEY = "file-api-connection";
 
@@ -225,7 +226,17 @@ export default function ProjectBar() {
               </Tooltip>
             ) : null}
             <div className="h-4 w-px bg-white/10 mx-1" />
+            <CreditTracker />
             <QueueButton />
+            <a
+              href="https://github.com/ai-scape/freepikv5/tree/main"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-sky-400 hover:text-white"
+              title="Help & Documentation"
+            >
+              <span className="text-xs font-bold">?</span>
+            </a>
           </div>
         </div>
       </div>

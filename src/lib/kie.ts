@@ -25,6 +25,36 @@ export function getKieKey() {
   return resolveEnvKey();
 }
 
+export async function getKieCredits(): Promise<number> {
+  const key = getKieKey();
+  if (!key) return 0;
+
+  const target = buildProviderUrl(KIE_BASE_URL, "/api/v1/chat/credit");
+  try {
+    const response = await fetch(target, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch credits: ${response.status}`);
+      return 0;
+    }
+
+    const data = (await response.json()) as { code: number; data: number };
+    if (data.code === 200 && typeof data.data === "number") {
+      return data.data;
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error fetching credits:", error);
+    return 0;
+  }
+}
+
 export async function callKie(
   endpoint: string,
   payload: Record<string, unknown>,

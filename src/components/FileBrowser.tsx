@@ -68,7 +68,7 @@ export default function FileBrowser() {
 
   const handleDelete = async (entry: FileEntry, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Are you sure you want to delete "${entry.name}"?`)) return;
+    // if (!confirm(`Are you sure you want to delete "${entry.name}"?`)) return;
     try {
       await remove(entry);
     } catch (error) {
@@ -322,6 +322,12 @@ export default function FileBrowser() {
                         className="h-full w-full object-cover"
                         preload="metadata"
                         muted
+                        loop
+                        onMouseEnter={(e) => e.currentTarget.play()}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.pause();
+                          e.currentTarget.currentTime = 0;
+                        }}
                         onLoadedMetadata={(e) => {
                           const target = e.target as HTMLVideoElement;
                           setFileDims((prev) => ({
