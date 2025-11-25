@@ -13,7 +13,7 @@ export default function FileBrowser() {
     actions: { setQuery, setFilters, select, refreshTree, rename, remove },
   } = useCatalog();
 
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -179,8 +179,8 @@ export default function FileBrowser() {
           type="button"
           onClick={() => toggleGroup("images")}
           className={`rounded-full px-3 py-1 font-semibold transition-colors ${isImagesActive
-              ? "bg-sky-500/30 text-white"
-              : "bg-white/10 text-slate-300 hover:text-white"
+            ? "bg-sky-500/30 text-white"
+            : "bg-white/10 text-slate-300 hover:text-white"
             }`}
         >
           Images
@@ -189,8 +189,8 @@ export default function FileBrowser() {
           type="button"
           onClick={() => toggleGroup("videos")}
           className={`rounded-full px-3 py-1 font-semibold transition-colors ${isVideosActive
-              ? "bg-sky-500/30 text-white"
-              : "bg-white/10 text-slate-300 hover:text-white"
+            ? "bg-sky-500/30 text-white"
+            : "bg-white/10 text-slate-300 hover:text-white"
             }`}
         >
           Videos
@@ -298,9 +298,33 @@ export default function FileBrowser() {
                     )}
                   </div>
                   <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 backdrop-blur-sm">
-                    <div className="truncate text-xs text-white" title={entry.name}>
-                      {entry.name}
-                    </div>
+                    {editingId === entry.id ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={() => handleRename(entry)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRename(entry);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-xs text-white outline-none"
+                      />
+                    ) : (
+                      <div
+                        className="truncate text-xs text-white cursor-text"
+                        title={entry.name}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(entry.id);
+                          setEditName(entry.name);
+                        }}
+                      >
+                        {entry.name}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
