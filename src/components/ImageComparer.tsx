@@ -145,24 +145,7 @@ export default function ImageComparer() {
     }
 
     return (
-        <div className="flex h-full flex-col gap-3 p-4">
-            <div className="flex justify-between text-xs text-slate-400 px-1">
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-                    {leftImage.name}
-                </div>
-                <button
-                    onClick={() => { setLeftImage(null); setRightImage(null); }}
-                    className="hover:text-white transition-colors"
-                >
-                    Reset
-                </button>
-                <div className="flex items-center gap-2">
-                    {rightImage.name}
-                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                </div>
-            </div>
-
+        <div className="flex h-full flex-col min-h-0">
             <div
                 ref={containerRef}
                 className="relative flex-1 overflow-hidden rounded-xl border border-white/10 bg-black/50 select-none touch-none"
@@ -185,14 +168,6 @@ export default function ImageComparer() {
                         src={leftImage.url}
                         alt="Left"
                         className="absolute inset-0 h-full w-full object-contain max-w-none"
-                        // Note: max-w-none and width of parent container is key here if we were using a different clipping method,
-                        // but with object-contain we need to be careful. 
-                        // Actually, for object-contain to match perfectly, they must have same aspect ratio or be fitted same way.
-                        // If images have different aspect ratios, object-contain might position them differently.
-                        // For a true comparer, usually we want them to overlap perfectly. 
-                        // Let's assume for now users compare variations of same generation (same aspect ratio).
-                        // To support different aspect ratios, we might need to force a specific layout or use object-cover.
-                        // Let's stick to object-contain but ensure the image element fills the container.
                         style={{ width: containerRef.current?.clientWidth, height: containerRef.current?.clientHeight }}
                     />
                 </div>
@@ -210,13 +185,13 @@ export default function ImageComparer() {
                     </div>
                 </div>
 
-                {/* Labels */}
-                <div className="absolute top-4 left-4 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                    {leftImage.name}
-                </div>
-                <div className="absolute top-4 right-4 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                    {rightImage.name}
-                </div>
+                {/* Reset Button */}
+                <button
+                    onClick={() => { setLeftImage(null); setRightImage(null); }}
+                    className="absolute top-4 right-4 z-10 rounded-lg bg-black/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-red-500/80"
+                >
+                    Reset
+                </button>
             </div>
         </div>
     );
