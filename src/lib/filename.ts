@@ -14,7 +14,7 @@ export function promptToSlug(prompt: string, seed?: string | number) {
     seed === undefined || seed === null || seed === ""
       ? ""
       : `_seed${sanitizeSegment(String(seed))}`;
-  return (base || "render") + seedPart;
+  return (base.slice(0, 100) || "render") + seedPart;
 }
 
 export function buildFilename(
