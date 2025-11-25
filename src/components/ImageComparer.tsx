@@ -160,17 +160,12 @@ export default function ImageComparer() {
                 />
 
                 {/* Foreground Image (Left) - Clipped */}
-                <div
-                    className="absolute inset-0 overflow-hidden pointer-events-none"
-                    style={{ width: `${sliderPosition}%` }}
-                >
-                    <img
-                        src={leftImage.url}
-                        alt="Left"
-                        className="absolute inset-0 h-full w-full object-contain max-w-none"
-                        style={{ width: containerRef.current?.clientWidth, height: containerRef.current?.clientHeight }}
-                    />
-                </div>
+                <img
+                    src={leftImage.url}
+                    alt="Left"
+                    className="absolute inset-0 h-full w-full object-contain pointer-events-none"
+                    style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                />
 
                 {/* Slider Handle */}
                 <div
