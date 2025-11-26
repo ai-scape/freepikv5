@@ -153,6 +153,22 @@ export default function FileBrowser() {
     });
   }, [entries, q, filterExt, connection]);
 
+  // Cleanup fileDims for removed files
+  useMemo(() => {
+    setFileDims((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      const currentIds = new Set(entries.map((e) => e.id));
+      for (const id in next) {
+        if (!currentIds.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [entries]);
+
   const toggleGroup = (group: "images" | "videos") => {
     const groupExts = group === "images" ? IMAGE_EXTS : VIDEO_EXTS;
     const allSelected = groupExts.every((ext) => filterExt.includes(ext));

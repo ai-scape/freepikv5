@@ -86,7 +86,6 @@ export async function callFal(
   }
 
   throw new Error("Unable to locate asset payload in FAL response.");
-  throw new Error("Unable to locate asset payload in FAL response.");
 }
 
 export async function callFalSubscribe(

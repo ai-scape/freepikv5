@@ -48,7 +48,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
             setJobs((prev) => [
                 {
                     id,
-                    status: "pending",
+                    status: "pending" as const,
                     type,
                     name,
                     payload,
@@ -56,7 +56,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                     logs: ["Job queued."],
                 },
                 ...prev,
-            ]);
+            ].slice(0, 50));
         },
         []
     );
