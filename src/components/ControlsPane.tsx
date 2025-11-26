@@ -16,9 +16,6 @@ import {
 import {
   IMAGE_MODELS,
 } from "../lib/image-models";
-import {
-  UPSCALE_MODELS,
-} from "../lib/upscale-models";
 import { getModelPricingLabel } from "../lib/pricing";
 import { uploadToFal } from "../lib/fal";
 import { extensionFromMime } from "../lib/mime";
@@ -37,7 +34,6 @@ import { downloadBlob } from "../lib/providers/shared";
 import {
   fetchFileBlob,
   uploadFile,
-  authHeaders,
   type WorkspaceConnection,
 } from "../lib/api/files";
 import { useQueue } from "../state/queue";
@@ -50,13 +46,9 @@ function formatDateFolder(date: Date) {
 
 
 
-type UploadSlot = {
-  url?: string;
-  preview?: string;
-  name?: string;
-  uploading: boolean;
-  error?: string | null;
-};
+
+import { type UploadSlot } from "./UpscaleControls";
+import { UploadZone } from "./UploadZone";
 
 type ReferenceUpload = {
   id: string;
@@ -67,10 +59,7 @@ type ReferenceUpload = {
   error?: string;
 };
 
-const createLocalId = () =>
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `upload-${Math.random().toString(36).slice(2)}`;
+
 
 const DEFAULT_MODEL_KEY = MODEL_SPECS.length
   ? `video:${DEFAULT_MODEL_ID || MODEL_SPECS[0].id}`
@@ -85,9 +74,8 @@ export default function ControlsPane() {
   } = useCatalog();
   const { addJob } = useQueue();
   const [modelKey, setModelKey] = useState(DEFAULT_MODEL_KEY);
-  const [activeTab, setActiveTab] = useState<"image" | "video" | "upscale">(() => {
+  const [activeTab, setActiveTab] = useState<"image" | "video">(() => {
     if (DEFAULT_MODEL_KEY.startsWith("image:")) return "image";
-    if (DEFAULT_MODEL_KEY.startsWith("upscale:")) return "upscale";
     return "video";
   });
   const [prompt, setPrompt] = useState("");
@@ -100,25 +88,12 @@ export default function ControlsPane() {
   const [status, setStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // const [busy, setBusy] = useState(false);
-  const [isStartDragActive, setIsStartDragActive] = useState(false);
-  const [isEndDragActive, setIsEndDragActive] = useState(false);
   const [isReferenceDragActive, setIsReferenceDragActive] = useState(false);
-  const [upscaleSource, setUpscaleSource] = useState<UploadSlot>({
-    uploading: false,
-  });
-  const [isUpscaleDragActive, setIsUpscaleDragActive] = useState(false);
-  const [upscaleFactor, setUpscaleFactor] = useState("2");
-  const [videoUpscaleResolution, setVideoUpscaleResolution] = useState<
-    "1080p" | "2k" | "4k"
-  >("1080p");
-  const [videoUpscaleFps, setVideoUpscaleFps] = useState<"30fps" | "60fps">(
-    "30fps"
-  );
 
-  const startInputRef = useRef<HTMLInputElement | null>(null);
-  const endInputRef = useRef<HTMLInputElement | null>(null);
+
   const referenceInputRef = useRef<HTMLInputElement | null>(null);
-  const upscaleInputRef = useRef<HTMLInputElement | null>(null);
+
+
   const previewRegistry = useRef(new Set<string>());
   const [paramValues, setParamValues] = useState<
     Record<string, string | number | boolean | undefined>
@@ -138,26 +113,21 @@ export default function ControlsPane() {
     return IMAGE_MODELS.find((spec) => spec.id === id);
   }, [modelKey, modelKind]);
 
-  const selectedUpscale = useMemo(() => {
-    if (modelKind !== "upscale") return undefined;
-    const id = modelKey.replace("upscale:", "");
-    return UPSCALE_MODELS.find((spec) => spec.id === id);
-  }, [modelKey, modelKind]);
+
 
   const pricingLabel = useMemo(() => {
     if (selectedVideo) return getModelPricingLabel(selectedVideo.id);
     if (selectedImage) return getModelPricingLabel(selectedImage.id);
-    if (selectedUpscale) return getModelPricingLabel(selectedUpscale.id);
     return undefined;
-  }, [selectedVideo, selectedImage, selectedUpscale]);
+  }, [selectedVideo, selectedImage]);
 
   const supportsStartFrame = selectedVideo?.supports?.startFrame !== false;
   const supportsEndFrame = selectedVideo?.supports?.endFrame === true;
   const videoReferenceConfig = selectedVideo?.referenceImages;
   const referenceLimit =
     modelKind === "video"
-      ? videoReferenceConfig?.max ?? 0
-      : selectedImage?.maxRefs ?? 0;
+      ? Math.min(videoReferenceConfig?.max ?? 0, 5)
+      : Math.min(selectedImage?.maxRefs ?? 0, 5);
 
   const registerPreview = useCallback((url: string) => {
     previewRegistry.current.add(url);
@@ -199,11 +169,7 @@ export default function ControlsPane() {
     }
   }, [selectedImage?.id, selectedImage?.ui]);
 
-  useEffect(() => {
-    setUpscaleFactor("2");
-    setVideoUpscaleResolution("1080p");
-    setVideoUpscaleFps("30fps");
-  }, [selectedUpscale?.id]);
+
 
   const extractFilesFromDataTransfer = useCallback(
     async (dataTransfer: DataTransfer | null): Promise<File[]> => {
@@ -309,85 +275,70 @@ export default function ControlsPane() {
   );
 
   const handleReferenceFiles = useCallback(
-    async (files: FileList | File[] | null) => {
+    async (files: FileList | null) => {
       if (!files) return;
-      const limit =
-        modelKind === "video"
-          ? videoReferenceConfig?.max ?? 0
-          : selectedImage?.maxRefs ?? 0;
-      if (limit === 0) {
-        setStatus("This model does not accept reference uploads.");
-        return;
-      }
-      const currentCount = referenceUploads.length;
-      const validFiles = Array.from(files).filter((file) =>
-        file.type.startsWith("image/")
+      const newFiles = Array.from(files).filter((f) =>
+        f.type.startsWith("image/")
       );
-      let allowedFiles = validFiles;
-      if (limit > 0) {
-        const remaining = Math.max(0, limit - currentCount);
-        if (remaining === 0) {
-          const scope = modelKind === "video" ? "This model" : "This pipeline";
-          setStatus(
-            `${scope} allows up to ${limit} reference image${limit === 1 ? "" : "s"}. Remove one to add another.`
-          );
-          return;
-        }
-        allowedFiles = validFiles.slice(0, remaining);
-      }
-      if (!allowedFiles.length) {
-        if (!validFiles.length) {
-          setStatus("Please drop image files.");
-        }
+
+      if (newFiles.length === 0) return;
+
+      // Enforce max 5 references
+      const availableSlots = 5 - referenceUploads.length;
+      if (availableSlots <= 0) {
+        setStatus("Maximum 5 reference images allowed.");
+        setTimeout(() => setStatus(null), 3000);
         return;
       }
-      for (const file of allowedFiles) {
-        const preview = registerPreview(URL.createObjectURL(file));
-        const id = createLocalId();
-        setReferenceUploads((prev) => [
-          ...prev,
-          {
-            id,
-            preview,
-            name: file.name,
-            uploading: true,
-          },
-        ]);
+
+      const filesToUpload = newFiles.slice(0, availableSlots);
+      if (newFiles.length > availableSlots) {
+        setStatus(`Only adding ${availableSlots} images (max 5).`);
+        setTimeout(() => setStatus(null), 3000);
+      }
+
+      const newEntries = filesToUpload.map((file) => ({
+        id: Math.random().toString(36).slice(2),
+        preview: URL.createObjectURL(file),
+        name: file.name,
+        uploading: true,
+      }));
+
+      // Register previews
+      newEntries.forEach((entry) => registerPreview(entry.preview));
+
+      setReferenceUploads((prev) => [...prev, ...newEntries]);
+
+      // Upload each file
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        const entry = newEntries[i];
         try {
           const url = await uploadToFal(file);
           setReferenceUploads((prev) =>
-            prev.map((entry) =>
-              entry.id === id
-                ? { ...entry, url, uploading: false, error: undefined }
-                : entry
+            prev.map((item) =>
+              item.id === entry.id
+                ? { ...item, uploading: false, url }
+                : item
             )
           );
         } catch (error) {
+          console.error("Ref upload error:", error);
           setReferenceUploads((prev) =>
-            prev.map((entry) =>
-              entry.id === id
+            prev.map((item) =>
+              item.id === entry.id
                 ? {
-                  ...entry,
+                  ...item,
                   uploading: false,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Upload failed.",
+                  error: "Upload failed",
                 }
-                : entry
+                : item
             )
           );
         }
       }
     },
-    [
-      modelKind,
-      registerPreview,
-      referenceUploads.length,
-      selectedImage,
-      setStatus,
-      videoReferenceConfig?.max,
-    ]
+    [referenceUploads, registerPreview, uploadToFal, setStatus]
   );
 
   const removeReference = useCallback(
@@ -417,109 +368,21 @@ export default function ControlsPane() {
     modelKind === "image" && selectedImage?.requireReference === true;
   const isMissingImageReference =
     imageRequiresReference && imageReferenceUrls.length === 0;
-  const isVideoUpscaler = selectedUpscale?.id === "bytedance-video-upscaler";
-
-  const handleUpscaleSourceSelect = useCallback(
-    async (file: File | null) => {
-      setUpscaleSource((previous) => {
-        if (previous.preview) {
-          releasePreview(previous.preview);
-        }
-        return { uploading: false };
-      });
-      if (!file) return;
-      const preview = registerPreview(URL.createObjectURL(file));
-      setUpscaleSource({
-        uploading: true,
-        preview,
-        name: file.name,
-      });
-      try {
-        if (!file.type.startsWith("image/") && !(isVideoUpscaler && file.type.startsWith("video/"))) {
-          throw new Error("Please upload a valid file for this upscaler.");
-        }
-
-        let fileToUpload = file;
-
-        // Check video dimensions and resize if needed
-        if (isVideoUpscaler && file.type.startsWith("video/")) {
-          const { getVideoDimensions } = await import("../lib/video");
-          const { width, height } = await getVideoDimensions(file);
-
-          if (width > 1080 && height > 1080) {
-            if (!connection) {
-              throw new Error("Connect to a workspace to resize large videos.");
-            }
-            // Resize needed
-            setStatus("Resizing video to fit 1080p...");
-            const formData = new FormData();
-            formData.append("file", file);
 
 
-            const response = await fetch(`${connection.apiBase}/resize-video`, {
-              method: "POST",
-              headers: authHeaders(connection.token),
-              body: formData,
-            });
 
-            if (!response.ok) {
-              const err = await response.json().catch(() => ({}));
-              throw new Error(err.error || "Failed to resize video");
-            }
 
-            const blob = await response.blob();
-            fileToUpload = new File([blob], file.name, { type: "video/mp4" });
-            setStatus(null);
-          }
-        }
 
-        const url = await uploadToFal(fileToUpload);
-        setUpscaleSource((prev) => ({
-          ...prev,
-          uploading: false,
-          url,
-          error: null,
-        }));
-      } catch (error) {
-        console.error("Upload error:", error);
-        setUpscaleSource((prev) => ({
-          ...prev,
-          uploading: false,
-          error: error instanceof Error ? error.message : "Upload failed.",
-        }));
-        setStatus(null);
-      }
-    },
-    [isVideoUpscaler, registerPreview, releasePreview, connection]
-  );
 
-  const handleStartFrameDrop = useCallback(
-    async (dataTransfer: DataTransfer | null) => {
-      const files = await extractFilesFromDataTransfer(dataTransfer);
-      const file = files.find((candidate) =>
-        candidate.type.startsWith("image/")
-      );
-      void handleStartFrameSelect(file ?? null);
-    },
-    [extractFilesFromDataTransfer, handleStartFrameSelect]
-  );
 
-  const handleEndFrameDrop = useCallback(
-    async (dataTransfer: DataTransfer | null) => {
-      const files = await extractFilesFromDataTransfer(dataTransfer);
-      const file = files.find((candidate) =>
-        candidate.type.startsWith("image/")
-      );
-      void handleEndFrameSelect(file ?? null);
-    },
-    [extractFilesFromDataTransfer, handleEndFrameSelect]
-  );
 
   const handleReferenceDrop = useCallback(
     async (dataTransfer: DataTransfer | null) => {
       const files = await extractFilesFromDataTransfer(dataTransfer);
       if (files.length) {
-        await handleReferenceFiles(files);
+        const dt = new DataTransfer();
+        files.forEach(f => dt.items.add(f));
+        await handleReferenceFiles(dt.files);
       }
     },
     [extractFilesFromDataTransfer, handleReferenceFiles]
@@ -528,8 +391,7 @@ export default function ControlsPane() {
   const pendingUploads =
     startFrame.uploading ||
     endFrame.uploading ||
-    referenceUploads.some((entry) => entry.uploading) ||
-    upscaleSource.uploading;
+    referenceUploads.some((entry) => entry.uploading);
 
   useEffect(() => {
     if (!selectedVideo) {
@@ -566,13 +428,8 @@ export default function ControlsPane() {
       modelKind === "video"
         ? videoReferenceConfig?.max ?? 0
         : selectedImage?.maxRefs ?? 0;
-    if (limit === 0) {
-      if (referenceUploads.length) {
-        setReferenceUploads([]);
-      }
-      return;
-    }
-    if (referenceUploads.length > limit) {
+
+    if (limit > 0 && referenceUploads.length > limit) {
       setReferenceUploads((prev) => prev.slice(0, limit));
     }
   }, [
@@ -700,12 +557,12 @@ export default function ControlsPane() {
       const modelId = modelKey.replace(/^(image:|video:|upscale:)/, "");
       const modelSpec = MODEL_SPECS.find((m) => m.id === modelId);
       const imageModelSpec = IMAGE_MODELS.find((m) => m.id === modelId);
-      const upscaleModelSpec = UPSCALE_MODELS.find((m) => m.id === modelId);
+
 
       let endpoint = "";
       let category: "image" | "video" = "image";
       let provider: ModelProvider = "fal";
-      let isUpscale = false;
+
       let payload: Record<string, unknown> | undefined;
 
       let callOptions: ProviderCallOptions | undefined;
@@ -751,32 +608,7 @@ export default function ControlsPane() {
         };
 
         payload = imageModelSpec.mapInput(imageJob);
-      } else if (upscaleModelSpec) {
-        endpoint = upscaleModelSpec.endpoint;
-        category = upscaleModelSpec.kind;
-        provider = upscaleModelSpec.provider ?? "kie";
-        isUpscale = true;
-        callOptions = upscaleModelSpec.taskConfig ? { taskConfig: upscaleModelSpec.taskConfig } : undefined;
 
-        if (!upscaleSource.url) {
-          throw new Error(
-            isVideoUpscaler
-              ? "Upload a source video to upscale."
-              : "Upload a source image to upscale."
-          );
-        }
-
-        const upscaleJob = {
-          sourceUrl: upscaleSource.url,
-          ...(isVideoUpscaler
-            ? {
-              targetResolution: videoUpscaleResolution,
-              targetFps: videoUpscaleFps,
-            }
-            : { upscaleFactor }),
-        };
-
-        payload = upscaleModelSpec.mapInput(upscaleJob);
       } else {
         throw new Error("Model not found");
       }
@@ -791,7 +623,7 @@ export default function ControlsPane() {
       }
 
       addJob(
-        isUpscale ? "upscale" : category,
+        category,
         prompt.trim() || modelId,
         {
           endpoint,
@@ -898,7 +730,7 @@ export default function ControlsPane() {
       <div className="flex-1 space-y-3 pb-40">
         <div className="space-y-3">
           <div className="flex rounded-lg bg-white/5 p-1">
-            {(["image", "video", "upscale"] as const).map((tab) => (
+            {(["image", "video"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -908,8 +740,6 @@ export default function ControlsPane() {
                     setModelKey(`image:${IMAGE_MODELS[0].id}`);
                   } else if (tab === "video" && MODEL_SPECS.length) {
                     setModelKey(`video:${MODEL_SPECS[0].id}`);
-                  } else if (tab === "upscale" && UPSCALE_MODELS.length) {
-                    setModelKey(`upscale:${UPSCALE_MODELS[0].id}`);
                   }
                 }}
                 className={`flex-1 rounded-md py-1.5 text-xs font-semibold capitalize transition-all ${activeTab === tab
@@ -917,7 +747,7 @@ export default function ControlsPane() {
                   : "text-slate-400 hover:text-slate-200"
                   }`}
               >
-                {tab === "upscale" ? "Other" : tab}
+                {tab}
               </button>
             ))}
           </div>
@@ -940,15 +770,7 @@ export default function ControlsPane() {
                   ))}
                 </optgroup>
               )}
-              {activeTab === "upscale" && UPSCALE_MODELS.length ? (
-                <optgroup label="Upscalers">
-                  {UPSCALE_MODELS.map((spec) => (
-                    <option key={spec.id} value={`upscale:${spec.id}`}>
-                      {spec.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
+
               {activeTab === "image" && (
                 <optgroup label="Image Pipelines">
                   {IMAGE_MODELS.map((spec) => (
@@ -966,12 +788,17 @@ export default function ControlsPane() {
         {modelKind === "image" ? (
           <div className="space-y-4">
             {/* 1. Reference Uploads (Top) */}
+            {/* 1. Reference Uploads (Top) */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Reference Images (optional)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Reference Images (optional)
+                </label>
+                <span className="text-[10px] text-slate-500">Max 5</span>
+              </div>
+
               <div
-                className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isReferenceDragActive
+                className={`relative flex min-h-[60px] flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent p-2 transition ${isReferenceDragActive
                   ? "border-sky-400 shadow-lg shadow-sky-500/20"
                   : "hover:border-white/20"
                   }`}
@@ -1004,54 +831,82 @@ export default function ControlsPane() {
                     event.target.value = "";
                   }}
                 />
-                <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
-                  <span>Drag & drop reference images or click browse.</span>
-                  <span className="text-[11px] text-slate-500">
-                    Slots: {Math.max(0, referenceLimit - referenceUploads.length)} / {referenceLimit}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+
+                {/* Previews */}
+                {referenceUploads.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black/20"
+                    title={entry.name}
+                  >
+                    <img
+                      src={entry.preview}
+                      alt={entry.name}
+                      className="h-full w-full object-cover"
+                    />
+                    {entry.uploading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <Spinner size="sm" />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeReference(entry.id);
+                      }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-white hover:text-rose-400"
+                      >
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add Button */}
+                {referenceUploads.length < 5 && (
                   <button
                     type="button"
-                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-white/20 bg-white/5 text-slate-400 transition hover:border-sky-400 hover:text-sky-200"
                     onClick={() => referenceInputRef.current?.click()}
+                    title="Add image"
                   >
-                    Browse files
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="M12 5v14" />
+                    </svg>
                   </button>
-                  {referenceUploads.some((entry) => entry.uploading) ? (
-                    <span className="inline-flex items-center gap-1 text-sky-200">
-                      <Spinner size="sm" /> Uploading…
-                    </span>
-                  ) : null}
-                </div>
-                {referenceUploads.length ? (
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {referenceUploads.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
-                      >
-                        <div className="relative">
-                          <img
-                            src={entry.preview}
-                            alt={entry.name}
-                            className="h-20 w-full rounded-lg object-cover"
-                          />
-                          <button
-                            type="button"
-                            className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
-                            onClick={() => removeReference(entry.id)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                        <div className="mt-2 truncate font-semibold text-white">
-                          {entry.name}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                )}
+
+                {/* Empty State Text */}
+                {referenceUploads.length === 0 && (
+                  <span className="ml-1 text-xs text-slate-500 pointer-events-none">
+                    Drag images or click +
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1135,162 +990,26 @@ export default function ControlsPane() {
           <div className="space-y-4">
             {/* Start/End Frames */}
             {supportsStartFrame ? (
-              <div className="flex flex-wrap gap-2">
-                <div className="flex-1 min-w-[160px] space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Start frame (required)
-                  </label>
-                  <div
-                    className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isStartDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
-                      }`}
-                    onDragEnter={(event) => {
-                      event.preventDefault();
-                      setIsStartDragActive(true);
-                    }}
-                    onDragLeave={(event) => {
-                      event.preventDefault();
-                      setIsStartDragActive(false);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setIsStartDragActive(true);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      setIsStartDragActive(false);
-                      void handleStartFrameDrop(event.dataTransfer);
-                    }}
-                  >
-                    <input
-                      ref={startInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                        const file = event.target.files?.[0] ?? null;
-                        void handleStartFrameSelect(file);
-                        event.target.value = "";
-                      }}
-                    />
-                    {startFrame.preview ? (
-                      <img
-                        src={startFrame.preview}
-                        alt="Start frame preview"
-                        className="h-32 w-full rounded-xl object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                        Drag & drop <br /> first frame
-                      </div>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                      <button
-                        type="button"
-                        className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                        onClick={() => startInputRef.current?.click()}
-                      >
-                        Browse
-                      </button>
-                      {startFrame.uploading ? (
-                        <span className="inline-flex items-center gap-1 text-sky-200">
-                          <Spinner size="sm" /> Uploading…
-                        </span>
-                      ) : startFrame.url ? (
-                        <span className="text-emerald-300">Ready</span>
-                      ) : null}
-                      {startFrame.name ? (
-                        <span className="truncate text-slate-500">{startFrame.name}</span>
-                      ) : null}
-                      {startFrame.url || startFrame.preview ? (
-                        <button
-                          type="button"
-                          className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                          onClick={() => handleStartFrameSelect(null)}
-                        >
-                          Clear
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="min-w-0">
+                  <UploadZone
+                    label="Start frame"
+                    accept="image/*"
+                    slot={startFrame}
+                    onFile={handleStartFrameSelect}
+                    extractFiles={extractFilesFromDataTransfer}
+                  />
                 </div>
 
                 {supportsEndFrame ? (
-                  <div className="flex-1 min-w-[160px] space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      End frame (optional)
-                    </label>
-                    <div
-                      className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isEndDragActive ? "border-sky-400 shadow-lg shadow-sky-500/20" : ""
-                        }`}
-                      onDragEnter={(event) => {
-                        event.preventDefault();
-                        setIsEndDragActive(true);
-                      }}
-                      onDragLeave={(event) => {
-                        event.preventDefault();
-                        setIsEndDragActive(false);
-                      }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setIsEndDragActive(true);
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        setIsEndDragActive(false);
-                        void handleEndFrameDrop(event.dataTransfer);
-                      }}
-                    >
-                      <input
-                        ref={endInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                          const file = event.target.files?.[0] ?? null;
-                          void handleEndFrameSelect(file);
-                          event.target.value = "";
-                        }}
-                      />
-                      {endFrame.preview ? (
-                        <img
-                          src={endFrame.preview}
-                          alt="End frame preview"
-                          className="h-32 w-full rounded-xl object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-32 flex-col items-center justify-center text-xs text-slate-400">
-                          Drag & drop <br /> last frame
-                        </div>
-                      )}
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                        <button
-                          type="button"
-                          className="rounded-full border border-white/20 px-3 py-1 font-semibold transition hover:border-sky-400 hover:text-sky-200"
-                          onClick={() => endInputRef.current?.click()}
-                        >
-                          Browse
-                        </button>
-                        {endFrame.uploading ? (
-                          <span className="inline-flex items-center gap-1 text-sky-200">
-                            <Spinner size="sm" /> Uploading…
-                          </span>
-                        ) : endFrame.url ? (
-                          <span className="text-emerald-300">Ready</span>
-                        ) : null}
-                        {endFrame.name ? (
-                          <span className="truncate text-slate-500">{endFrame.name}</span>
-                        ) : null}
-                        {endFrame.url || endFrame.preview ? (
-                          <button
-                            type="button"
-                            className="rounded-full border border-white/10 px-3 py-1 font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200"
-                            onClick={() => handleEndFrameSelect(null)}
-                          >
-                            Clear
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <UploadZone
+                      label="End frame (optional)"
+                      accept="image/*"
+                      slot={endFrame}
+                      onFile={handleEndFrameSelect}
+                      extractFiles={extractFilesFromDataTransfer}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -1313,10 +1032,10 @@ export default function ControlsPane() {
             {referenceLimit > 0 ? (
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Reference Images (optional)
+                  Reference Images (max 5)
                 </label>
                 <div
-                  className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isReferenceDragActive
+                  className={`relative flex min-h-[100px] flex-col justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent p-3 transition ${isReferenceDragActive
                     ? "border-sky-400 shadow-lg shadow-sky-500/20"
                     : "hover:border-white/20"
                     }`}
@@ -1349,54 +1068,66 @@ export default function ControlsPane() {
                       event.target.value = "";
                     }}
                   />
-                  <div className="flex flex-wrap items-center justify-between text-xs text-slate-400">
-                    <span>Drag & drop reference images or click browse.</span>
-                    <span className="text-[11px] text-slate-500">
-                      Slots: {Math.max(0, referenceLimit - referenceUploads.length)} / {referenceLimit}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+
+                  {referenceUploads.length === 0 ? (
+                    <div
+                      className="flex flex-col items-center justify-center py-2 text-center cursor-pointer"
                       onClick={() => referenceInputRef.current?.click()}
                     >
-                      Browse files
-                    </button>
-                    {referenceUploads.some((entry) => entry.uploading) ? (
-                      <span className="inline-flex items-center gap-1 text-sky-200">
-                        <Spinner size="sm" /> Uploading…
-                      </span>
-                    ) : null}
-                  </div>
-                  {referenceUploads.length ? (
-                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="mb-2 rounded-full bg-white/5 p-2 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        <span className="font-medium text-slate-300">Click to upload</span> or drag and drop
+                      </div>
+                      <div className="mt-1 text-[10px] text-slate-500">
+                        Max 5 images
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
                       {referenceUploads.map((entry) => (
                         <div
                           key={entry.id}
-                          className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs"
+                          className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black/20 group"
+                          title={entry.name}
                         >
-                          <div className="relative">
-                            <img
-                              src={entry.preview}
-                              alt={entry.name}
-                              className="h-20 w-full rounded-lg object-cover"
-                            />
-                            <button
-                              type="button"
-                              className="absolute right-1 top-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-500/80"
-                              onClick={() => removeReference(entry.id)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                          <div className="mt-2 truncate font-semibold text-white">
-                            {entry.name}
-                          </div>
+                          <img
+                            src={entry.preview}
+                            alt={entry.name}
+                            className="h-full w-full object-cover"
+                          />
+                          {entry.uploading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <Spinner size="sm" />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-rose-500 group-hover:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeReference(entry.id);
+                            }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                          </button>
                         </div>
                       ))}
+
+                      {/* Add more button (small square) */}
+                      {referenceUploads.length < 5 && (
+                        <button
+                          type="button"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-dashed border-white/20 bg-white/5 text-slate-400 transition hover:border-sky-400 hover:text-sky-200"
+                          onClick={() => referenceInputRef.current?.click()}
+                          title="Add more images"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                        </button>
+                      )}
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </div>
             ) : null}
@@ -1416,167 +1147,7 @@ export default function ControlsPane() {
           </div>
         ) : null}
 
-        {/* UPSCALE CONTROLS */}
-        {modelKind === "upscale" ? (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Source file (required)
-              </label>
-              <div
-                className={`rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-transparent px-3 py-3 transition ${isUpscaleDragActive
-                  ? "border-sky-400 shadow-lg shadow-sky-500/20"
-                  : "hover:border-white/20"
-                  }`}
-                onDragEnter={(event) => {
-                  event.preventDefault();
-                  setIsUpscaleDragActive(true);
-                }}
-                onDragLeave={(event) => {
-                  event.preventDefault();
-                  setIsUpscaleDragActive(false);
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setIsUpscaleDragActive(true);
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setIsUpscaleDragActive(false);
-                  void (async () => {
-                    const files = await extractFilesFromDataTransfer(
-                      event.dataTransfer
-                    );
-                    const file = files.find((candidate) =>
-                      isVideoUpscaler
-                        ? candidate.type.startsWith("video/")
-                        : candidate.type.startsWith("image/")
-                    );
-                    void handleUpscaleSourceSelect(file ?? null);
-                  })();
-                }}
-              >
-                <input
-                  ref={upscaleInputRef}
-                  type="file"
-                  accept={isVideoUpscaler ? "video/*" : "image/*"}
-                  className="hidden"
-                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                    const file = event.target.files?.[0] ?? null;
-                    void handleUpscaleSourceSelect(file);
-                    event.target.value = "";
-                  }}
-                />
-                <div className="flex flex-col items-center justify-center py-4 text-xs text-slate-400">
-                  {upscaleSource.preview || upscaleSource.name ? (
-                    <div className="text-center">
-                      {upscaleSource.preview ? (
-                        isVideoUpscaler ? (
-                          <video
-                            src={upscaleSource.preview}
-                            className="mb-2 h-32 w-full rounded-xl object-cover"
-                            controls
-                          />
-                        ) : (
-                          <img
-                            src={upscaleSource.preview}
-                            alt={upscaleSource.name}
-                            className="mb-2 h-32 w-full rounded-xl object-cover"
-                          />
-                        )
-                      ) : null}
-                      <p className="mb-2 font-semibold text-emerald-400">
-                        {isVideoUpscaler ? "Video Selected" : "Image Selected"}
-                      </p>
-                      <p className="truncate max-w-[200px] text-slate-300">
-                        {upscaleSource.name}
-                      </p>
-                      {upscaleSource.error ? (
-                        <p className="mt-1 text-[10px] text-rose-400">
-                          {upscaleSource.error}
-                        </p>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="mt-3 rounded-full border border-white/10 px-3 py-1 text-slate-300 hover:bg-white/10"
-                        onClick={() => handleUpscaleSourceSelect(null)}
-                      >
-                        Change
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="mb-3">
-                        Drag & drop {isVideoUpscaler ? "video" : "image"} or
-                        click browse
-                      </p>
-                      <button
-                        type="button"
-                        className="rounded-full border border-white/20 px-4 py-1.5 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
-                        onClick={() => upscaleInputRef.current?.click()}
-                      >
-                        {isVideoUpscaler ? "Browse Video" : "Browse Image"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            {isVideoUpscaler ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Target resolution
-                  </label>
-                  <select
-                    value={videoUpscaleResolution}
-                    onChange={(event) =>
-                      setVideoUpscaleResolution(
-                        event.target.value as "1080p" | "2k" | "4k"
-                      )
-                    }
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                  >
-                    <option value="1080p">1080p</option>
-                    <option value="2k">2K</option>
-                    <option value="4k">4K</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Target FPS
-                  </label>
-                  <select
-                    value={videoUpscaleFps}
-                    onChange={(event) =>
-                      setVideoUpscaleFps(event.target.value as "30fps" | "60fps")
-                    }
-                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                  >
-                    <option value="30fps">30 fps</option>
-                    <option value="60fps">60 fps</option>
-                  </select>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Upscale factor
-                </label>
-                <select
-                  value={upscaleFactor}
-                  onChange={(event) => setUpscaleFactor(event.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                >
-                  <option value="1">1x</option>
-                  <option value="2">2x</option>
-                  <option value="4">4x</option>
-                  <option value="8">8x</option>
-                </select>
-              </div>
-            )}
-          </div>
-        ) : null}
+
       </div>
 
       <div className="sticky bottom-0 left-0 right-0 mt-auto space-y-2 border-t border-white/10 bg-slate-950/95 p-3 shadow-[0_-6px_25px_rgba(0,0,0,0.7)] backdrop-blur sm:p-4">

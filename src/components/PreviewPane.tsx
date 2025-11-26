@@ -3,6 +3,11 @@ import { useCatalog } from "../state/useCatalog";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { getFileUrl, uploadFile } from "../lib/api/files";
 import ImageComparer from "./ImageComparer";
+import { UPSCALE_MODELS } from "../lib/upscale-models";
+import { useQueue } from "../state/queue";
+import { downloadBlob } from "../lib/providers/shared";
+import { callModelEndpoint, getProviderEnvVar, getProviderKey } from "../lib/providers";
+import { buildFilename } from "../lib/filename";
 
 
 
@@ -17,6 +22,7 @@ export default function PreviewPane({
     state: { selected, connection },
     actions: { refreshTree },
   } = useCatalog();
+  const { addJob } = useQueue();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +33,10 @@ export default function PreviewPane({
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [cropAspect, setCropAspect] = useState("1:1");
   const [cropBusy, setCropBusy] = useState(false);
+
   const [cropStatus, setCropStatus] = useState<string | null>(null);
+  const [upscaleBusy, setUpscaleBusy] = useState(false);
+  const [upscaleStatus, setUpscaleStatus] = useState<string | null>(null);
   const cropPresets = [
     { value: "1:1", label: "1:1" },
     { value: "4:3", label: "4:3" },
@@ -66,7 +75,10 @@ export default function PreviewPane({
     setVideoDuration(null);
     setCropStatus(null);
     setCropAspect("1:1");
+    setCropAspect("1:1");
     setCropBusy(false);
+    setUpscaleStatus(null);
+    setUpscaleBusy(false);
   }, [selected?.id]);
 
   const ensureMetadataReady = useCallback(async () => {
@@ -323,6 +335,148 @@ export default function PreviewPane({
       setCropBusy(false);
     }
   }, [cropAspect, parseAspectRatio, previewUrl, selected, connection, refreshTree]);
+
+  const handleUpscale = useCallback(async () => {
+    if (!connection || !selected || selected.kind !== "file" || !selected.mime.startsWith("image")) {
+      setUpscaleStatus("Upscaling is only available for images.");
+      return;
+    }
+    if (!previewUrl) {
+      setUpscaleStatus("No image available to upscale.");
+      return;
+    }
+
+    const modelSpec = UPSCALE_MODELS.find((m) => m.id === "topaz-image-upscale");
+    if (!modelSpec) {
+      setUpscaleStatus("Upscale model not found.");
+      return;
+    }
+
+    setUpscaleBusy(true);
+    setUpscaleStatus("Starting upscale...");
+
+    try {
+      const provider = modelSpec.provider ?? "kie";
+      if (!getProviderKey(provider)) {
+        throw new Error(`Missing ${getProviderEnvVar(provider)} in environment.`);
+      }
+
+      // We need the public URL or we upload the file again to get a URL if needed
+      // For now, let's assume we can use the file we have.
+      // Actually, for KIE/Topaz we need a public URL.
+      // But wait, `uploadToFal` returns a URL.
+      // Let's check if we can get a URL for the current file.
+      // If it's a local file server, `previewUrl` is local.
+      // We might need to upload it to a storage that the model can access, OR send as base64 if supported.
+      // Topaz on KIE usually expects a URL.
+      // Let's try to use the `previewUrl` if it's public, otherwise we might need to upload.
+      // Actually, `ControlsPane` was uploading to Fal/KIE before.
+      // Let's re-use `uploadToFal` logic or similar?
+      // Wait, `ControlsPane` imported `uploadToFal`.
+      // I should import `uploadToFal` here too.
+
+      // Re-reading the plan: "Call addJob with the upscale payload."
+      // The payload needs `image_url`.
+      // If I use `previewUrl`, it's `http://localhost...`. KIE won't reach it.
+      // I need to upload the file to KIE/Fal first.
+
+      // Let's import uploadToFal.
+      const { uploadToFal } = await import("../lib/fal");
+
+      // Fetch the blob from the preview URL (which is local)
+      const response = await fetch(previewUrl);
+      const blob = await response.blob();
+      const file = new File([blob], selected.name, { type: selected.mime });
+
+      setUpscaleStatus("Uploading image...");
+      const url = await uploadToFal(file);
+
+      const payload = modelSpec.mapInput({
+        sourceUrl: url,
+        upscaleFactor: "2", // Default to 2x
+      });
+
+      addJob(
+        "upscale",
+        `Upscale ${selected.name}`,
+        {
+          endpoint: modelSpec.endpoint,
+          payload,
+          modelId: modelSpec.id,
+          category: "image", // Upscale is kind of image
+          provider,
+          callOptions: modelSpec.taskConfig ? { taskConfig: modelSpec.taskConfig } : undefined,
+          seed: "",
+          prompt: "Upscale",
+          connection,
+          refreshTree,
+        },
+        async (data: unknown, log) => {
+          // This callback is for when the job finishes in the queue
+          // But the queue handles the execution.
+          // Wait, `addJob` takes a callback?
+          // Looking at `ControlsPane`, `addJob` takes `onSuccess` callback.
+          // I should copy the `onSuccess` logic from `ControlsPane` or simplify it.
+          // The queue executes the job. The callback is called when the job is picked up?
+          // No, `useQueue` `addJob` signature: (type, description, data, executor)
+          // The executor is what runs.
+
+          const {
+            endpoint,
+            payload,
+            provider,
+            callOptions,
+            connection,
+            refreshTree,
+          } = data as any;
+
+          log("Calling upscale API...");
+          const result = await callModelEndpoint(
+            provider,
+            endpoint,
+            payload,
+            { ...callOptions, log }
+          );
+
+          let downloadedBlob: Blob;
+          let resultUrlStr: string | undefined;
+
+          if (result.blob) {
+            downloadedBlob = result.blob;
+          } else if (result.url) {
+            resultUrlStr = result.url;
+            log("Downloading result...");
+            downloadedBlob = await downloadBlob(result.url);
+          } else {
+            throw new Error("No result from model");
+          }
+
+          const filename = buildFilename(modelSpec.id, "upscale", "png", "");
+          // We want to save it in the same folder as the original
+          const directoryParts = selected.relPath.split("/");
+          directoryParts.pop(); // remove filename
+          const baseDir = directoryParts.join("/");
+          const relPath = baseDir ? `${baseDir}/${filename}` : filename;
+
+          log("Saving to workspace...");
+          if (connection) {
+            await uploadFile(connection, relPath, downloadedBlob);
+            await refreshTree(relPath);
+          }
+          return resultUrlStr || "Blob saved";
+        }
+      );
+
+      setUpscaleStatus("Upscale job queued.");
+      setTimeout(() => setUpscaleStatus(null), 3000);
+
+    } catch (error) {
+      console.error("Upscale error:", error);
+      setUpscaleStatus(error instanceof Error ? error.message : "Upscale failed.");
+    } finally {
+      setUpscaleBusy(false);
+    }
+  }, [connection, selected, previewUrl, addJob, refreshTree]);
 
   useEffect(() => {
     if (!connection || !selected || selected.kind === "dir") {
@@ -664,6 +818,14 @@ export default function PreviewPane({
                     >
                       {cropBusy ? "Cropping…" : "Crop"}
                     </button>
+                    <button
+                      type="button"
+                      disabled={upscaleBusy}
+                      onClick={() => void handleUpscale()}
+                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {upscaleBusy ? "Upscaling…" : "Upscale"}
+                    </button>
                   </div>
                   <button
                     type="button"
@@ -681,6 +843,11 @@ export default function PreviewPane({
                 {cropStatus ? (
                   <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
                     {cropStatus}
+                  </div>
+                ) : null}
+                {upscaleStatus ? (
+                  <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
+                    {upscaleStatus}
                   </div>
                 ) : null}
               </div>
