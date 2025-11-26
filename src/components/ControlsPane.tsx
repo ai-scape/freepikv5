@@ -83,7 +83,7 @@ export default function ControlsPane() {
   const [endFrame, setEndFrame] = useState<UploadSlot>({ uploading: false });
   const [seed, setSeed] = useState("");
   const [referenceUploads, setReferenceUploads] = useState<ReferenceUpload[]>([]);
-  const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
   const [imageResolution, setImageResolution] = useState("1K");
   const [status, setStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -161,7 +161,14 @@ export default function ControlsPane() {
           { value: "3:2", label: "3:2" },
           { value: "9:16", label: "9:16" },
         ];
-    setAspectRatio(aspectOptions[0]?.value ?? "1:1");
+
+    // Prefer 16:9 if available, otherwise first option
+    const defaultAspect = aspectOptions.find(opt => opt.value === "16:9")
+      ? "16:9"
+      : aspectOptions[0]?.value ?? "16:9";
+
+    setAspectRatio(defaultAspect);
+
     if (ui?.resolutions?.length) {
       setImageResolution(ui.resolutions[0].value);
     } else {
