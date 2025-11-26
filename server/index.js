@@ -330,6 +330,44 @@ server.patch("/files", async (request, reply) => {
   }
 });
 
+server.post("/publish", async (request, reply) => {
+  let { workspace, path: relPath, project, sequence, shot, version } = request.body ?? {};
+
+  try {
+    workspace = sanitizeWorkspaceId(workspace);
+    relPath = sanitizeRelPath(relPath);
+    project = sanitizeWorkspaceId(project); // Reuse workspace ID sanitization for project name safety
+    if (!sequence || !shot || !version) throw new Error("Missing metadata");
+  } catch (error) {
+    reply.code(400).send({ error: error.message ?? "Invalid input" });
+    return;
+  }
+
+  const workspaceDir = await ensureWorkspaceDir(workspace);
+  const sourcePath = toSafePath(workspaceDir, relPath);
+
+  // Construct destination path: publish/{workspace}/{project}_{sequence}_{shot}_v{version}.{ext}
+  const ext = path.extname(relPath);
+  const fileName = `${project}_${sequence}_${shot}_v${version}${ext}`;
+  const publishDir = path.join(STORAGE_ROOT, "publish", workspace);
+  const destPath = path.join(publishDir, fileName);
+
+  try {
+    // Ensure source exists
+    await fs.access(sourcePath);
+
+    // Ensure publish dir exists
+    await fs.mkdir(publishDir, { recursive: true });
+
+    // Copy file
+    await fs.copyFile(sourcePath, destPath);
+
+    reply.send({ ok: true, publishedPath: `publish/${workspace}/${fileName}` });
+  } catch (error) {
+    reply.code(500).send({ error: error.message ?? "Publish failed" });
+  }
+});
+
 import { spawn } from "node:child_process";
 
 server.post("/resize-video", async (request, reply) => {

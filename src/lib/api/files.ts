@@ -159,6 +159,34 @@ export async function renameFile(
   }
 }
 
+export async function publishFile(
+  connection: WorkspaceConnection,
+  relPath: string,
+  metadata: {
+    project: string;
+    sequence: string;
+    shot: string;
+    version: string;
+  }
+): Promise<void> {
+  const response = await fetch(new URL("/publish", connection.apiBase), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(connection.token),
+    },
+    body: JSON.stringify({
+      workspace: connection.workspaceId,
+      path: relPath,
+      ...metadata,
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `Publish failed: ${response.statusText}`);
+  }
+}
+
 export async function listWorkspaces(
   apiBase: string,
   token?: string

@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useCatalog } from "../state/useCatalog";
-import { type FileEntry, getFileUrl } from "../lib/api/files";
+import { type FileEntry, getFileUrl, publishFile } from "../lib/api/files";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { Spinner } from "./ui/Spinner";
+import { PublishModal } from "./PublishModal";
 
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
 const VIDEO_EXTS = ["mp4", "webm", "mov", "mkv"];
@@ -15,6 +16,7 @@ export default function FileBrowser() {
 
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [publishingEntry, setPublishingEntry] = useState<FileEntry | null>(null);
   const [editName, setEditName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
@@ -114,6 +116,24 @@ export default function FileBrowser() {
       console.error("Upload failed:", error);
       setUploadStatus("Upload failed");
       setTimeout(() => setUploadStatus(null), 3000);
+    }
+  };
+
+  const handlePublish = async (metadata: {
+    project: string;
+    sequence: string;
+    shot: string;
+    version: string;
+  }) => {
+    if (!connection || !publishingEntry) return;
+
+    try {
+      await publishFile(connection, publishingEntry.relPath, metadata);
+      setPublishingEntry(null);
+      alert("File published successfully!");
+    } catch (error) {
+      console.error("Publish failed:", error);
+      throw error; // Re-throw for modal to handle
     }
   };
 
@@ -383,6 +403,17 @@ export default function FileBrowser() {
                   </div>
                   <button
                     type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPublishingEntry(entry);
+                    }}
+                    className="absolute top-1 right-8 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-sky-500 hover:text-white group-hover:opacity-100"
+                    title="Publish"
+                  >
+                    🚀
+                  </button>
+                  <button
+                    type="button"
                     onClick={(e) => handleDelete(entry, e)}
                     className="absolute top-1 right-1 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100"
                     title="Delete"
@@ -495,6 +526,17 @@ export default function FileBrowser() {
                     <div className="flex items-center gap-2 text-right text-xs text-slate-400">
                       <button
                         type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPublishingEntry(entry);
+                        }}
+                        className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-sky-400"
+                        title="Publish"
+                      >
+                        🚀
+                      </button>
+                      <button
+                        type="button"
                         onClick={(e) => handleDelete(entry, e)}
                         className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-red-400"
                         title="Delete"
@@ -509,6 +551,15 @@ export default function FileBrowser() {
           </ul>
         )}
       </div>
+
+      {publishingEntry && (
+        <PublishModal
+          fileName={publishingEntry.name}
+          defaultProject={connection.workspaceId !== "default" ? connection.workspaceId : ""}
+          onConfirm={handlePublish}
+          onCancel={() => setPublishingEntry(null)}
+        />
+      )}
     </div>
   );
 }
