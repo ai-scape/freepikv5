@@ -62,7 +62,7 @@ server.addHook("onRequest", async (request, reply) => {
 function sanitizeWorkspaceId(raw) {
   const value = (raw ?? "default").trim();
   if (!value) return "default";
-  if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
+  if (!/^[a-zA-Z0-9._\s-]+$/.test(value)) {
     throw new Error("Invalid workspace id");
   }
   return value;

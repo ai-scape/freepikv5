@@ -7,7 +7,7 @@ import {
   type WorkspaceConnection,
 } from "../lib/api/files";
 import { useCatalog } from "../state/useCatalog";
-import { Tooltip, InfoIcon } from "./ui/Tooltip";
+import { Tooltip } from "./ui/Tooltip";
 import { useQueue } from "../state/queue";
 import QueueLog from "./QueueLog";
 import CreditTracker from "./CreditTracker";
@@ -151,24 +151,26 @@ export default function ProjectBar() {
     setStatus("Disconnected from workspace.");
   };
 
-  const connectionLabel = connection
-    ? `${connection.workspaceId} @ ${connection.apiBase}`
-    : "No workspace connected";
+
 
   return (
     <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/70 backdrop-blur-lg">
       <div className="flex flex-col gap-3 px-4 py-3 text-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-wide text-slate-400">
-                Workspace
+          <div className="flex flex-col justify-center min-h-[2.5rem]">
+            {status ? (
+              <span className="text-xs font-medium text-slate-300 animate-pulse-once">
+                {status}
               </span>
-              <Tooltip text="Connect to the file API that will save and stream your renders.">
-                <InfoIcon className="h-3 w-3 text-slate-500" />
-              </Tooltip>
-            </div>
-            <span className="font-semibold text-white">{connectionLabel}</span>
+            ) : !connection ? (
+              <span className="text-xs text-sky-200">
+                👉 Enter details and click Connect
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-slate-300">
+                Ready
+              </span>
+            )}
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
             <input
@@ -240,15 +242,7 @@ export default function ProjectBar() {
           </div>
         </div>
       </div>
-      {status ? (
-        <div className="border-t border-white/5 bg-white/5 px-4 py-2 text-xs text-slate-300">
-          {status}
-        </div>
-      ) : !connection ? (
-        <div className="border-t border-white/5 bg-gradient-to-r from-sky-500/10 to-indigo-500/10 px-4 py-2 text-xs text-sky-200">
-          👉 <strong>Getting Started:</strong> Enter your file API URL, workspace, and token, then click Connect.
-        </div>
-      ) : null}
+
       <QueueLog />
     </header>
   );
