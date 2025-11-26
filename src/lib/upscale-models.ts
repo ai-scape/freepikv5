@@ -20,19 +20,6 @@ export type UpscaleModelSpec = {
 
 export const UPSCALE_MODELS: UpscaleModelSpec[] = [
   {
-    id: "bytedance-video-upscaler",
-    label: "ByteDance Video Upscaler",
-    endpoint: "fal-ai/bytedance-upscaler/upscale/video",
-    provider: "fal",
-    pricing: "$0.04/sec (video)",
-    kind: "video",
-    mapInput: ({ sourceUrl, targetResolution, targetFps }) => ({
-      video_url: sourceUrl,
-      target_resolution: targetResolution ?? "1080p",
-      target_fps: targetFps ?? "30fps",
-    }),
-  },
-  {
     id: "topaz-image-upscale",
     label: "Topaz Image Upscale",
     endpoint: "/api/v1/jobs/createTask",
@@ -56,18 +43,6 @@ export const UPSCALE_MODELS: UpscaleModelSpec[] = [
             ? upscaleFactor
             : "2",
       },
-    }),
-  },
-  {
-    id: "clarity-image-upscale",
-    label: "Clarity Upscaler",
-    endpoint: "fal-ai/clarity-upscaler",
-    provider: "fal",
-    pricing: "$0.03/image",
-    kind: "image",
-    mapInput: ({ sourceUrl, upscaleFactor }) => ({
-      image_url: sourceUrl,
-      ...(upscaleFactor ? { upscale_factor: Number(upscaleFactor) } : {}),
     }),
   },
 ];

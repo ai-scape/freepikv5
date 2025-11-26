@@ -31,17 +31,17 @@ export default function PreviewPane({
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureStatus, setCaptureStatus] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
-  const [cropAspect, setCropAspect] = useState("1:1");
+  const [cropAspect, setCropAspect] = useState("16:9");
   const [cropBusy, setCropBusy] = useState(false);
 
   const [cropStatus, setCropStatus] = useState<string | null>(null);
   const [upscaleBusy, setUpscaleBusy] = useState(false);
   const [upscaleStatus, setUpscaleStatus] = useState<string | null>(null);
   const cropPresets = [
+    { value: "16:9", label: "16:9" },
     { value: "1:1", label: "1:1" },
     { value: "4:3", label: "4:3" },
     { value: "3:2", label: "3:2" },
-    { value: "16:9", label: "16:9" },
     { value: "9:16", label: "9:16" },
   ] as const;
 
@@ -74,8 +74,7 @@ export default function PreviewPane({
     setCaptureStatus(null);
     setVideoDuration(null);
     setCropStatus(null);
-    setCropAspect("1:1");
-    setCropAspect("1:1");
+    setCropAspect("16:9");
     setCropBusy(false);
     setUpscaleStatus(null);
     setUpscaleBusy(false);

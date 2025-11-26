@@ -242,6 +242,7 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     maxRefs: 10,
     ui: {
       aspectRatios: [
+        { value: "landscape_16_9", label: "Landscape (16:9)" },
         { value: "square_hd", label: "Square HD (1:1)" },
         { value: "square", label: "Square (1:1)" },
         { value: "portrait_4_3", label: "Portrait (3:4)" },
@@ -249,7 +250,6 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
         { value: "portrait_16_9", label: "Portrait (9:16)" },
         { value: "landscape_4_3", label: "Landscape (4:3)" },
         { value: "landscape_3_2", label: "Landscape (3:2)" },
-        { value: "landscape_16_9", label: "Landscape (16:9)" },
         { value: "landscape_21_9", label: "Landscape (21:9)" },
       ],
       resolutions: [
@@ -310,12 +310,12 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     maxRefs: 3,
     ui: {
       aspectRatios: [
+        { value: "landscape_16_9", label: "Landscape (16:9)" },
         { value: "square_hd", label: "Square HD" },
         { value: "square", label: "Square" },
         { value: "portrait_4_3", label: "Portrait (3:4)" },
         { value: "portrait_16_9", label: "Portrait (9:16)" },
         { value: "landscape_4_3", label: "Landscape (4:3)" },
-        { value: "landscape_16_9", label: "Landscape (16:9)" },
       ],
       outputFormats: [
         { value: "png", label: "PNG" },

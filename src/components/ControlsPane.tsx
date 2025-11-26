@@ -163,8 +163,11 @@ export default function ControlsPane() {
         ];
 
     // Prefer 16:9 if available, otherwise first option
-    const defaultAspect = aspectOptions.find(opt => opt.value === "16:9")
-      ? "16:9"
+    const defaultAspectOption = aspectOptions.find(
+      (opt) => opt.value === "16:9" || opt.value === "landscape_16_9"
+    );
+    const defaultAspect = defaultAspectOption
+      ? defaultAspectOption.value
       : aspectOptions[0]?.value ?? "16:9";
 
     setAspectRatio(defaultAspect);
