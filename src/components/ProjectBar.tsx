@@ -172,13 +172,13 @@ export default function ProjectBar() {
               </span>
             )}
           </div>
-          <div className="ml-auto flex flex-wrap gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <input
               type="url"
               value={apiBase}
               onChange={(event) => setApiBase(event.target.value)}
               placeholder="http://localhost:8787"
-              className="w-48 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+              className="w-32 sm:w-48 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all"
             />
             <input
               type="text"
@@ -186,7 +186,7 @@ export default function ProjectBar() {
               onChange={(event) => setWorkspaceId(event.target.value)}
               list="workspace-options"
               placeholder="workspace id"
-              className="w-32 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+              className="w-24 sm:w-32 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all"
             />
             <datalist id="workspace-options">
               {workspaces.map((ws) => (
@@ -198,47 +198,51 @@ export default function ProjectBar() {
               value={token}
               onChange={(event) => setToken(event.target.value)}
               placeholder="API token"
-              className="w-36 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+              className="w-24 sm:w-36 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all"
             />
-            <button
-              type="button"
-              onClick={handleConnect}
-              disabled={busy}
-              className="rounded-full border border-white/20 px-3 py-1 font-semibold text-xs text-white transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy ? "Connecting…" : connection ? "Reconnect" : "Connect"}
-            </button>
-            <button
-              type="button"
-              onClick={handleCreateWorkspace}
-              disabled={busy}
-              className="rounded-full border border-white/10 px-3 py-1 font-semibold text-xs text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              New Workspace
-            </button>
-            {connection ? (
-              <Tooltip text="Disconnect clears the saved workspace link. Your files stay on the server.">
-                <button
-                  type="button"
-                  onClick={handleDisconnect}
-                  className="rounded-full border border-white/10 px-3 py-1 font-semibold text-xs text-slate-200 transition hover:border-amber-400 hover:text-amber-100"
-                >
-                  Disconnect
-                </button>
-              </Tooltip>
-            ) : null}
-            <div className="h-4 w-px bg-white/10 mx-1" />
-            <CreditTracker />
-            <QueueButton />
-            <a
-              href="https://github.com/ai-scape/freepikv5/tree/main"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-sky-400 hover:text-white"
-              title="Help & Documentation"
-            >
-              <span className="text-xs font-bold">?</span>
-            </a>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={busy}
+                className="whitespace-nowrap rounded-full border border-white/20 px-3 py-1 font-semibold text-xs text-white transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? "..." : connection ? "Reconnect" : "Connect"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateWorkspace}
+                disabled={busy}
+                className="whitespace-nowrap rounded-full border border-white/10 px-3 py-1 font-semibold text-xs text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                New
+              </button>
+              {connection ? (
+                <Tooltip text="Disconnect clears the saved workspace link. Your files stay on the server.">
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    className="whitespace-nowrap rounded-full border border-white/10 px-3 py-1 font-semibold text-xs text-slate-200 transition hover:border-amber-400 hover:text-amber-100"
+                  >
+                    Disconnect
+                  </button>
+                </Tooltip>
+              ) : null}
+            </div>
+            <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
+            <div className="flex items-center gap-2">
+              <CreditTracker />
+              <QueueButton />
+              <a
+                href="https://github.com/ai-scape/freepikv5/tree/main"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-sky-400 hover:text-white"
+                title="Help & Documentation"
+              >
+                <span className="text-xs font-bold">?</span>
+              </a>
+            </div>
           </div>
         </div>
       </div>
