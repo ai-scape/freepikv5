@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useCatalog } from "../state/useCatalog";
 import { type FileEntry, getFileUrl, publishFile } from "../lib/api/files";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
@@ -154,7 +154,8 @@ export default function FileBrowser() {
   }, [entries, q, filterExt, connection]);
 
   // Cleanup fileDims for removed files
-  useMemo(() => {
+  // Cleanup fileDims for removed files
+  useEffect(() => {
     setFileDims((prev) => {
       const next = { ...prev };
       let changed = false;

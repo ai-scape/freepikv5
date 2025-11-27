@@ -300,7 +300,7 @@ server.delete("/files", async (request, reply) => {
   const workspaceDir = await ensureWorkspaceDir(workspace);
   const targetPath = toSafePath(workspaceDir, relPath);
   try {
-    await fs.rm(targetPath);
+    await fs.rm(targetPath, { recursive: true, force: true });
     reply.send({ ok: true });
   } catch {
     reply.code(404).send({ error: "Not found" });

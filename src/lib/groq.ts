@@ -1,7 +1,7 @@
 import { SYSTEM_PROMPTS } from "./prompts";
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL_ID = "meta-llama/llama-4-maverick-17b-128e-instruct";
+const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL || "https://api.groq.com/openai/v1/chat/completions";
+const MODEL_ID = import.meta.env.VITE_GROQ_MODEL_ID || "meta-llama/llama-4-maverick-17b-128e-instruct";
 
 type MessageContent =
     | string
