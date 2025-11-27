@@ -155,7 +155,7 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     label: "Nano Banana Pro — Edit",
     endpoint: "/api/v1/jobs/createTask",
     provider: "kie",
-    pricing: "$0.15/image",
+    pricing: "$0.12/image",
     taskConfig: {
       statusEndpoint: "/api/v1/jobs/recordInfo",
       statePath: "data.state",

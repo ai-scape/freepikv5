@@ -101,7 +101,7 @@ Monitor your usage limits with the credit tracker in the top bar. Click the refr
 ### ✅ **Workspace Storage** - Files organized on the server (`images/YYYY-MM-DD`, `videos/YYYY-MM-DD`)
 ### ✅ **20+ AI Models** - Video, image, and upscaling models included
 ### ✅ **Smart Controls** - UI automatically adapts to each model's parameters
-### ✅ **Smart Processing** - Automatically handles video resizing for model compatibility
+### ✅ **Prompt Expansion** - Integrated Groq LLM for enhancing prompts
 ### ✅ **Built-in Browser** - Browse, preview, and search your generated files
 ### ✅ **Persistent** - Workspace and token are remembered between sessions
 
@@ -109,23 +109,23 @@ Monitor your usage limits with the credit tracker in the top bar. Click the refr
 
 ### Video Generation
 - **Kling 2.5 Pro** - High-quality video generation
-- **Veo 3.1** - Google's latest video model (Fast & I2V)
-- **Hailuo 2.3** - Minimax's creative video generator
+- **Veo 3.1 Fast** - Google's latest video model (Text & I2V)
+- **Hailuo 2.3 Pro** - Minimax's creative video generator
 - **Wan 2.5** - Alibaba's advanced video model
-- **Seedance** - Bytedance's video generation model
+- **Kling 2.1 Pro** - Cost-effective video generation
+- **Seedance V1 Pro** - Bytedance's video generation model
 
-### Image Generation
-- **Flux Kontext Pro/Max** - Professional-grade images & editing
-- **Qwen Image Edit** - Advanced image editing and transformation
-- **Nano Banana** - Creative artistic images
+### Image Generation & Editing
+- **Nano Banana (Edit/Pro)** - Creative artistic images and editing
 - **Seedream V4** - ByteDance image editing
+- **Qwen Image Edit Plus** - Advanced image editing
 
 ### Video Upscaling
 - **Topaz Video Upscaler** - Industry standard upscaling
 - **FlashVSR** - High-quality video upscaling
 - **ByteDance Upscaler** - Professional video enhancement
 
-See the full model catalog in the [Technical Docs](#project-structure) section below.
+See the full model catalog in the [Technical Docs](video%20models%20kie%20docs.md) section.
 
 ## 💡 Tips for Great Results
 
@@ -243,6 +243,7 @@ Deploy the frontend (`dist/`) alongside the file API server. Any host works as l
 
 - **[User Guide](docs/USER_GUIDE.md)** - Step-by-step instructions for users
 - **[Agent Guide](docs/AGENT_GUIDE.md)** - Advanced automation tips
+- **[API Reference](video%20models%20kie%20docs.md)** - Full model catalog and API details
 
 ## 🤝 Contributing
 

@@ -21,7 +21,7 @@ The application consists of two main parts:
     -   `ProjectBar.tsx`: Manages workspace connection and credit tracking.
 -   **`src/lib`**: Core business logic.
     -   `api/files.ts`: Client-side API for interacting with the file server.
-    -   `models.json`: **Single source of truth** for Video models (params, endpoints, pricing).
+    -   `models.json`: **Single source of truth** for Video models (params, endpoints, pricing). See also `video models kie docs.md` for full API reference.
     -   `image-models.ts`: Definitions for Image models.
     -   `providers/`: API client implementations for KIE and FAL.
 -   **`src/state`**: Global state management via React Context (`useCatalog`).

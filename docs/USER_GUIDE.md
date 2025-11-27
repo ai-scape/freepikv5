@@ -62,7 +62,7 @@ The app has three main sections:
 
 Videos need at least one reference image to start from:
 
-1.  **Choose a video model** (e.g., "kling-2.5-pro" or "veo-3.1-quality-firstlast")
+1.  **Choose a video model** (e.g., "kling-2.5-pro" or "veo-3.1-fast")
 2.  **Upload a start frame** - This is the first image of your video
 3.  **Optional: Upload an end frame** - For some models, this creates smooth transitions
 4.  **Optional: Add reference images** - Some models let you provide style references
@@ -124,7 +124,7 @@ This model requires input videos to be 1080p or smaller. If you upload a larger 
 
 **For Videos:**
 -   **kling-2.5-pro** - Best quality, slower
--   **veo-3.1-fast-text** - Quick generations from text only
+-   **veo-3.1-fast** - Quick generations from text only
 -   **ltx-2-fast** - Fast, good for testing ideas
 
 **For Images:**
