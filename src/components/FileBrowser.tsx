@@ -533,7 +533,11 @@ export default function FileBrowser() {
                           </div>
                           {dims && (
                             <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono">
-                              {dims.w}x{dims.h}
+                              {dims.w}x{dims.h} ({(() => {
+                                const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+                                const div = gcd(dims.w, dims.h);
+                                return `${dims.w / div}:${dims.h / div}`;
+                              })()})
                             </span>
                           )}
                         </div>

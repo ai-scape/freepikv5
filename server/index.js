@@ -196,8 +196,7 @@ server.get("/files/:workspace/*", async (request, reply) => {
     return;
   }
 
-  const mimeType =
-    mime.lookup(relPath.split(".").pop() ?? "") || "application/octet-stream";
+  const mimeType = mime.lookup(absPath) || "application/octet-stream";
   const range = request.headers.range;
 
   if (range) {
@@ -221,6 +220,7 @@ server.get("/files/:workspace/*", async (request, reply) => {
     return reply.send(createReadStream(absPath, { start, end }));
   }
 
+  reply.header("Accept-Ranges", "bytes");
   reply.header("Content-Length", stats.size);
   reply.header("Content-Type", mimeType);
   return reply.send(createReadStream(absPath));

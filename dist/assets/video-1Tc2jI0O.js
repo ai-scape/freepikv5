@@ -1,1 +1,0 @@
-function d(t){return new Promise((o,r)=>{const e=document.createElement("video");e.preload="metadata",e.onloadedmetadata=()=>{URL.revokeObjectURL(e.src),o({width:e.videoWidth,height:e.videoHeight})},e.onerror=()=>{URL.revokeObjectURL(e.src),r(new Error("Failed to load video metadata"))},e.src=URL.createObjectURL(t)})}export{d as getVideoDimensions};
