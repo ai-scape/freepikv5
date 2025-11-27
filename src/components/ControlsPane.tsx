@@ -465,13 +465,23 @@ export default function ControlsPane() {
         : selectedImage?.maxRefs ?? 0;
 
     if (limit > 0 && referenceUploads.length > limit) {
-      setReferenceUploads((prev) => prev.slice(0, limit));
+      setReferenceUploads((prev) => {
+        const kept = prev.slice(0, limit);
+        const removed = prev.slice(limit);
+        removed.forEach((entry) => {
+          if (entry.preview) {
+            releasePreview(entry.preview);
+          }
+        });
+        return kept;
+      });
     }
   }, [
     modelKind,
     selectedImage?.maxRefs,
     videoReferenceConfig?.max,
     referenceUploads.length,
+    releasePreview,
   ]);
 
   const handleParamChange = (
@@ -612,6 +622,13 @@ export default function ControlsPane() {
 
   const handleGenerate = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (!connection) {
+      setStatus("Please connect to a workspace first.");
+      setTimeout(() => setStatus(null), 3000);
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Artificial delay for UX

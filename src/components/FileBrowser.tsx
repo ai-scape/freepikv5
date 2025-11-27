@@ -70,7 +70,7 @@ export default function FileBrowser() {
 
   const handleDelete = async (entry: FileEntry, e: React.MouseEvent) => {
     e.stopPropagation();
-    // if (!confirm(`Are you sure you want to delete "${entry.name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${entry.name}"?`)) return;
     try {
       await remove(entry);
     } catch (error) {
