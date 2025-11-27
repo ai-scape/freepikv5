@@ -5,6 +5,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactNode,
 } from "react";
@@ -94,8 +95,12 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     const toggleLog = useCallback(() => setIsLogOpen((v) => !v), []);
 
     // Queue Processor
+    const isProcessingRef = useRef(false);
+
     useEffect(() => {
         const processQueue = async () => {
+            if (isProcessingRef.current) return;
+
             const processingCount = jobs.filter((j) => j.status === "processing").length;
             if (processingCount >= CONCURRENCY_LIMIT) return;
 
@@ -105,6 +110,8 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                 .find((j) => j.status === "pending");
 
             if (!nextJob) return;
+
+            isProcessingRef.current = true;
 
             const processor = processors[nextJob.id];
             if (!processor) {
@@ -116,6 +123,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                             : j
                     )
                 );
+                isProcessingRef.current = false;
                 return;
             }
 
@@ -180,11 +188,6 @@ export function QueueProvider({ children }: { children: ReactNode }) {
 
                 // Log to server
                 try {
-                    // Assuming connection info is in payload or we can just hit the local server
-                    // The local server is always at http://localhost:8787 (or env)
-                    // But we might not have the URL here easily if it's dynamic.
-                    // However, we can try the default or extract from payload if available.
-                    // Let's assume standard local dev port for now or try to use payload.connection.apiBase
                     const payload = nextJob.payload as { connection?: { apiBase?: string } };
                     const apiBase = payload?.connection?.apiBase || "http://localhost:8787";
                     await fetch(new URL("/log", apiBase).toString(), {
@@ -204,6 +207,8 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                 } catch (e) {
                     console.error("Failed to log error to server", e);
                 }
+            } finally {
+                isProcessingRef.current = false;
             }
         };
 

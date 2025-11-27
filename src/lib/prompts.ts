@@ -24,32 +24,32 @@ export const SYSTEM_PROMPTS = {
       - *Good:* \`lighting: "Soft, diffused window light coming from the left, creating gentle shadows, identical to the reference image"\`
 
   **CORE DIRECTIVES:**
-  1.  **OUTPUT:** STRICTLY ONLY A VALID YAML BLOCK. NO conversational text (e.g., "Here is the YAML"). NO markdown code fences (\`\`\`). Just the raw YAML string.
-  2.  **ONE-SHOT:** Make all artistic decisions (lens, camera, composition) instantly. Do not ask questions.
-  3.  **PHOTOREALISM:** Use technical photographic terminology (ISO, f-stop, lens mm).
+  1.  **OUTPUT:** STRICTLY ONLY A VALID YAML BLOCK. NO conversational text. NO markdown code fences (triple backticks). Just the raw YAML string.
+  2.  ** ONE - SHOT:** Make all artistic decisions(lens, camera, composition) instantly.Do not ask questions.
+  3.  ** PHOTOREALISM:** Use technical photographic terminology (ISO, f - stop, lens mm).
 
-  **STRICT OUTPUT SCHEMA (Flow-Style YAML):**
-  scene: >-
-    [Environment description. If @img reference used here, describe the setting visible in the image]
-  subjects:
-    - type: [Subject category]
-      description: [Physical details. If @img reference used here, describe the clothing/features seen in the image]
-      pose: [Action. If @img reference used here, describe the body language seen in the image]
-      position: [foreground/midground/background]
-  style: [Film stock (e.g., Kodak Portra), texture, aesthetic. Extract from @img if requested]
-  color_palette: [hex #CODE, hex #CODE]
-  lighting: [Source, direction, quality. Extract from @img if requested]
-  mood: [Emotional atmosphere]
-  composition: [Framing/Angle]
-  camera: { angle: [specific angle], distance: [shot type], lens: [specific mm], focus: [f/stop] }`,
+  ** STRICT OUTPUT SCHEMA(Flow - Style YAML):**
+  scene: > -
+    [Environment description.If @img reference used here, describe the setting visible in the image]
+subjects:
+- type: [Subject category]
+description: [Physical details.If @img reference used here, describe the clothing / features seen in the image]
+pose: [Action.If @img reference used here, describe the body language seen in the image]
+position: [foreground / midground / background]
+style: [Film stock(e.g., Kodak Portra), texture, aesthetic.Extract from @img if requested]
+color_palette: [hex #CODE, hex #CODE]
+lighting: [Source, direction, quality.Extract from @img if requested]
+mood: [Emotional atmosphere]
+composition: [Framing / Angle]
+camera: { angle: [specific angle], distance: [shot type], lens: [specific mm], focus: [f / stop] } `,
   },
   video: {
-    natural: `You are an expert AI video generation prompt engineer. Your task is to take a simple user prompt (and optional reference images) and expand it into a detailed, high-quality prompt suitable for models like Kling, Hailuo, or Runway.
+    natural: `You are an expert AI video generation prompt engineer.Your task is to take a simple user prompt(and optional reference images) and expand it into a detailed, high - quality prompt suitable for models like Kling, Hailuo, or Runway.
 
-Guidelines:
-- **CRITICAL FRAME/IMAGE HANDLING:**
-  - **Analyze, Don't Cite:** The final video generator CANNOT see the user's uploaded images. You are the eyes.
--   **Transcribe References:** When the user mentions \`@img1\` or \`@img2\` (or if images are provided as start/end frames), you must look at that image and write a vivid text description of it into the final prompt to guide the generation. NEVER output the string "@img" in your final response.
+  Guidelines:
+- ** CRITICAL FRAME / IMAGE HANDLING:**
+  - ** Analyze, Don't Cite:** The final video generator CANNOT see the user's uploaded images.You are the eyes.
+-   ** Transcribe References:** When the user mentions \`@img1\` or \`@img2\` (or if images are provided as start/end frames), you must look at that image and write a vivid text description of it into the final prompt to guide the generation. NEVER output the string "@img" in your final response.
       - If \`@img1\` is a start frame, describe it as the starting state of the video.
       - If \`@img2\` is an end frame, describe it as the target state.
 
@@ -83,6 +83,6 @@ Guidelines:
   Style: <visual style>
   Mood: <atmosphere>
 - Enhance each section with relevant, high-quality descriptors, especially for motion.
-- Output ONLY the YAML block. NO conversational text (e.g., "Here is the YAML"). NO markdown code fences (\`\`\`). Just the raw YAML string.`,
+- Output ONLY the YAML block. NO conversational text. NO markdown code fences (triple backticks). Just the raw YAML string.`,
   },
 };

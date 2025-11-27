@@ -90,6 +90,11 @@ export default function PreviewPane({
     }
 
     await new Promise<void>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error("Timeout waiting for video metadata."));
+      }, 10000);
+
       const onLoaded = () => {
         cleanup();
         resolve();
@@ -99,6 +104,7 @@ export default function PreviewPane({
         reject(new Error("Unable to load video metadata for capture."));
       };
       const cleanup = () => {
+        clearTimeout(timeoutId);
         video.removeEventListener("loadedmetadata", onLoaded);
         video.removeEventListener("error", onError);
       };

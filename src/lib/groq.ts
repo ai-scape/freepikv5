@@ -91,7 +91,12 @@ export async function expandPrompt(
             throw new Error("No content received from Groq.");
         }
 
-        return content.trim();
+        let cleanContent = content.trim();
+
+        // Remove markdown code blocks if present
+        cleanContent = cleanContent.replace(/^```(?:yaml|json)?\s*/i, "").replace(/\s*```$/, "");
+
+        return cleanContent.trim();
     } catch (error) {
         console.error("Error expanding prompt:", error);
         throw error;
