@@ -285,9 +285,11 @@ export default function PreviewPane({
       let cropWidth = imgWidth;
       let cropHeight = imgHeight;
       if (imageRatio > ratio) {
-        cropWidth = Math.floor(imgHeight * ratio);
+        cropWidth = Math.min(imgWidth, Math.round(imgHeight * ratio));
+        cropHeight = imgHeight;
       } else {
-        cropHeight = Math.floor(imgWidth / ratio);
+        cropWidth = imgWidth;
+        cropHeight = Math.min(imgHeight, Math.round(imgWidth / ratio));
       }
       const sx = Math.max(0, Math.floor((imgWidth - cropWidth) / 2));
       const sy = Math.max(0, Math.floor((imgHeight - cropHeight) / 2));

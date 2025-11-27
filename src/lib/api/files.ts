@@ -43,7 +43,7 @@ export function getDefaultConnection(
 export function getFileUrl(
   connection: WorkspaceConnection,
   relPath: string,
-  opts?: { includeToken?: boolean }
+  opts?: { includeToken?: boolean; cacheBust?: boolean }
 ): string {
   const base = connection.apiBase.replace(/\/$/, "");
   const encoded = encodeRelPath(relPath);
@@ -53,6 +53,9 @@ export function getFileUrl(
   );
   if (opts?.includeToken && connection.token) {
     url.searchParams.set("token", connection.token);
+  }
+  if (opts?.cacheBust) {
+    url.searchParams.set("t", Date.now().toString());
   }
   return url.toString();
 }
