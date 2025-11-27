@@ -180,8 +180,8 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
         { value: "21:9", label: "21:9" },
       ],
       resolutions: [
-        { value: "1K", label: "1K" },
         { value: "2K", label: "2K" },
+        { value: "1K", label: "1K" },
         { value: "4K", label: "4K" },
       ],
       outputFormats: [
@@ -253,8 +253,8 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
         { value: "landscape_21_9", label: "Landscape (21:9)" },
       ],
       resolutions: [
-        { value: "1K", label: "1K" },
         { value: "2K", label: "2K" },
+        { value: "1K", label: "1K" },
         { value: "4K", label: "4K" },
       ],
       maxImages: { min: 1, max: 6, default: 1 },
@@ -272,11 +272,8 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
             : "bytedance/seedream-v4-text-to-image",
         input: {
           prompt,
-          ...(imageUrls.length > 0
-            ? { image_urls: imageUrls.slice(0, 10) }
-            : aspectRatio
-              ? { image_size: aspectRatio }
-              : {}),
+          ...(imageUrls.length > 0 ? { image_urls: imageUrls.slice(0, 10) } : {}),
+          ...(aspectRatio ? { image_size: aspectRatio } : {}),
           ...(imageResolution ? { image_resolution: imageResolution } : {}),
           ...(clampedMax !== undefined ? { max_images: clampedMax } : {}),
           ...(seed !== undefined ? { seed } : {}),

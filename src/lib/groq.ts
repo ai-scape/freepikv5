@@ -1,7 +1,7 @@
 import { SYSTEM_PROMPTS } from "./prompts";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL_ID = "mistralai/mistral-small-3.1-24b-instruct:free";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL_ID = "meta-llama/llama-4-maverick-17b-128e-instruct";
 
 type MessageContent =
     | string
@@ -19,20 +19,26 @@ export async function expandPrompt(
     mode: "image" | "video",
     referenceImages: string[] = []
 ): Promise<string> {
-    const apiKey = import.meta.env.VITE_OPENROUTER_KEY;
+    const apiKey = import.meta.env.VITE_GROQ_KEY;
 
     if (!apiKey) {
-        throw new Error("VITE_OPENROUTER_KEY is not set in the environment.");
+        throw new Error("VITE_GROQ_KEY is not set in the environment.");
     }
 
     const systemPrompt = SYSTEM_PROMPTS[mode][type];
 
     const userContent: MessageContent = [];
 
-    // Add text prompt
+    // Add text prompt with explicit image indexing context if images are present
+    let finalPrompt = prompt;
+    if (referenceImages.length > 0) {
+        const imageContext = referenceImages.map((_, i) => `Image ${i + 1} corresponds to @img${i + 1}`).join(", ");
+        finalPrompt = `[System Note: ${referenceImages.length} images attached. ${imageContext}.] ${prompt}`;
+    }
+
     userContent.push({
         type: "text",
-        text: prompt,
+        text: finalPrompt,
     });
 
     // Add reference images
@@ -46,13 +52,11 @@ export async function expandPrompt(
     });
 
     try {
-        const response = await fetch(OPENROUTER_API_URL, {
+        const response = await fetch(GROQ_API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${apiKey}`,
-                "HTTP-Referer": window.location.origin,
-                "X-Title": "AI Asset Studio",
             },
             body: JSON.stringify({
                 model: MODEL_ID,
@@ -67,14 +71,14 @@ export async function expandPrompt(
                     },
                 ],
                 temperature: 0.7,
-                max_tokens: 1000,
+                max_completion_tokens: 1024, // Groq uses max_completion_tokens
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(
-                `OpenRouter API error: ${response.status} ${response.statusText} - ${JSON.stringify(
+                `Groq API error: ${response.status} ${response.statusText} - ${JSON.stringify(
                     errorData
                 )}`
             );
@@ -84,7 +88,7 @@ export async function expandPrompt(
         const content = data.choices?.[0]?.message?.content;
 
         if (!content) {
-            throw new Error("No content received from OpenRouter.");
+            throw new Error("No content received from Groq.");
         }
 
         return content.trim();

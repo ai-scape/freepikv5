@@ -37,7 +37,7 @@ import {
   type WorkspaceConnection,
 } from "../lib/api/files";
 import { useQueue } from "../state/queue";
-import { expandPrompt } from "../lib/openrouter";
+import { expandPrompt } from "../lib/groq";
 
 function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
@@ -189,8 +189,10 @@ export default function ControlsPane() {
       }
 
       const resParam = selectedVideo.params.resolution;
-      if (resParam?.values?.length) {
-        // Prefer 720p or 768P as reasonable defaults
+      if (resParam?.default) {
+        defaultRes = String(resParam.default);
+      } else if (resParam?.values?.length) {
+        // Prefer 720p or 768P as reasonable defaults if no explicit default
         const found = resParam.values.find(v => String(v).includes("720") || String(v).includes("768"));
         defaultRes = found ? String(found) : String(resParam.values[0]);
       } else {
@@ -1018,7 +1020,7 @@ export default function ControlsPane() {
             {/* 3. Aspect ratio & model-specific inputs */}
             {/* 3. Aspect ratio & model-specific inputs */}
             <div className="space-y-2">
-              {(modelKind === "image" || (modelKind === "video" && (selectedVideo?.params?.aspect_ratio || selectedVideo?.params?.aspectRatio))) && (
+              {modelKind === "image" && (
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Aspect ratio
@@ -1028,31 +1030,23 @@ export default function ControlsPane() {
                     onChange={(event) => setAspectRatio(event.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                   >
-                    {modelKind === "image" ? (
-                      (selectedImage?.ui?.aspectRatios ??
-                        [
-                          { value: "16:9", label: "16:9" },
-                          { value: "4:3", label: "4:3" },
-                          { value: "1:1", label: "1:1" },
-                          { value: "3:2", label: "3:2" },
-                          { value: "9:16", label: "9:16" },
-                        ]).map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))
-                    ) : (
-                      (selectedVideo?.params?.aspect_ratio?.values ?? selectedVideo?.params?.aspectRatio?.values ?? []).map((val) => (
-                        <option key={String(val)} value={String(val)}>
-                          {String(val)}
+                    {(selectedImage?.ui?.aspectRatios ??
+                      [
+                        { value: "16:9", label: "16:9" },
+                        { value: "4:3", label: "4:3" },
+                        { value: "1:1", label: "1:1" },
+                        { value: "3:2", label: "3:2" },
+                        { value: "9:16", label: "9:16" },
+                      ]).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
-                      ))
-                    )}
+                      ))}
                   </select>
                 </div>
               )}
 
-              {(modelKind === "image" && selectedImage?.ui?.resolutions) || (modelKind === "video" && selectedVideo?.params?.resolution) ? (
+              {modelKind === "image" && selectedImage?.ui?.resolutions ? (
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Resolution
@@ -1062,17 +1056,11 @@ export default function ControlsPane() {
                     onChange={(event) => setImageResolution(event.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                   >
-                    {modelKind === "image"
-                      ? selectedImage?.ui?.resolutions?.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))
-                      : selectedVideo?.params?.resolution?.values?.map((val) => (
-                        <option key={String(val)} value={String(val)}>
-                          {String(val)}
-                        </option>
-                      ))}
+                    {selectedImage?.ui?.resolutions?.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               ) : null}
@@ -1270,6 +1258,47 @@ export default function ControlsPane() {
                 </div>
               </div>
             ) : null}
+
+            {/* Aspect ratio & Resolution for Video */}
+            <div className="space-y-2">
+              {(selectedVideo?.params?.aspect_ratio || selectedVideo?.params?.aspectRatio) && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Aspect ratio
+                  </label>
+                  <select
+                    value={aspectRatio}
+                    onChange={(event) => setAspectRatio(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    {(selectedVideo?.params?.aspect_ratio?.values ?? selectedVideo?.params?.aspectRatio?.values ?? []).map((val) => (
+                      <option key={String(val)} value={String(val)}>
+                        {String(val)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {selectedVideo?.params?.resolution ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Resolution
+                  </label>
+                  <select
+                    value={imageResolution}
+                    onChange={(event) => setImageResolution(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    {selectedVideo?.params?.resolution?.values?.map((val) => (
+                      <option key={String(val)} value={String(val)}>
+                        {String(val)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
 
             {/* Dynamic Params */}
             {selectedVideo ? (

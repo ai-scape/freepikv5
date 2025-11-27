@@ -158,7 +158,7 @@
             "768P",
             "1080P"
           ],
-          "default": "768P"
+          "default": "1080P"
         }
       },
       "output": {
@@ -215,7 +215,7 @@
             "720p",
             "1080p"
           ],
-          "default": "720p"
+          "default": "1080p"
         },
         "negative_prompt": {
           "type": "string",
@@ -298,82 +298,6 @@
       }
     },
     {
-      "id": "wan-2.2-turbo",
-      "label": "Wan 2.2 Turbo (I2V)",
-      "endpoint": "/api/v1/jobs/createTask",
-      "provider": "kie",
-      "pricing": "$0.04/sec (480p), $0.06/sec (580p), $0.08/sec (720p)",
-      "supports": {
-        "startFrame": true,
-        "endFrame": false,
-        "audio": false,
-        "resolution": true,
-        "aspectRatio": true,
-        "fps": false
-      },
-      "taskConfig": {
-        "statusEndpoint": "/api/v1/jobs/recordInfo",
-        "statePath": "data.state",
-        "successStates": [
-          "success"
-        ],
-        "failureStates": [
-          "fail"
-        ],
-        "responseDataPath": "data",
-        "pollIntervalMs": 4000
-      },
-      "params": {
-        "image_url": {
-          "type": "string",
-          "required": true,
-          "uiKey": "start_frame_url"
-        },
-        "prompt": {
-          "type": "string",
-          "required": true
-        },
-        "resolution": {
-          "type": "enum",
-          "values": [
-            "480p",
-            "580p",
-            "720p"
-          ],
-          "default": "720p"
-        },
-        "aspect_ratio": {
-          "type": "enum",
-          "values": [
-            "auto",
-            "16:9",
-            "9:16",
-            "1:1"
-          ],
-          "default": "auto"
-        },
-        "enable_prompt_expansion": {
-          "type": "boolean",
-          "default": false
-        },
-        "seed": {
-          "type": "number",
-          "hidden": true
-        },
-        "acceleration": {
-          "type": "enum",
-          "values": [
-            "none",
-            "regular"
-          ],
-          "default": "none"
-        }
-      },
-      "output": {
-        "videoPath": "video.url"
-      }
-    },
-    {
       "id": "seedance-pro",
       "label": "Seedance V1 Pro",
       "endpoint": "/api/v1/jobs/createTask",
@@ -416,7 +340,7 @@
             "720p",
             "1080p"
           ],
-          "default": "720p"
+          "default": "1080p"
         },
         "duration": {
           "type": "enum",
