@@ -182,7 +182,7 @@ const jsonSpecs =
                 continue;
               }
 
-              // Handle type conversions
+              // Handle type conversions and validation
               if (definition.type === "number" && typeof value === "string") {
                 const num = Number(value);
                 if (!isNaN(num)) {
@@ -190,6 +190,22 @@ const jsonSpecs =
                 }
               } else if (definition.type === "string" && typeof value === "number") {
                 input[paramKey] = String(value);
+              } else if (definition.type === "enum" && definition.values) {
+                // Validate enum values
+                const stringValues = definition.values.map(String);
+                const valStr = String(value);
+                if (stringValues.includes(valStr)) {
+                  input[paramKey] = value;
+                } else {
+                  // Fallback to default if available
+                  if (definition.default !== undefined) {
+                    input[paramKey] = definition.default;
+                  } else if (definition.required) {
+                    // If required and no default, we might want to throw or just pass it through (risky)
+                    // For now, let's pass it through but log a warning if we could
+                    input[paramKey] = value;
+                  }
+                }
               } else {
                 input[paramKey] = value;
               }

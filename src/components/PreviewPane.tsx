@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCatalog } from "../state/useCatalog";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
-import { getFileUrl, uploadFile } from "../lib/api/files";
+import { getFileUrl, uploadFile, type WorkspaceConnection } from "../lib/api/files";
 import ImageComparer from "./ImageComparer";
 import { UPSCALE_MODELS } from "../lib/upscale-models";
 import { useQueue } from "../state/queue";
 import { downloadBlob } from "../lib/providers/shared";
-import { callModelEndpoint, getProviderEnvVar, getProviderKey } from "../lib/providers";
+import { callModelEndpoint, getProviderEnvVar, getProviderKey, type ModelProvider, type ProviderCallOptions } from "../lib/providers";
 import { buildFilename } from "../lib/filename";
 
 
@@ -427,7 +427,14 @@ export default function PreviewPane({
             callOptions,
             connection,
             refreshTree,
-          } = data as any;
+          } = data as {
+            endpoint: string;
+            payload: Record<string, unknown>;
+            provider: ModelProvider;
+            callOptions?: ProviderCallOptions;
+            connection: WorkspaceConnection;
+            refreshTree: (path?: string) => Promise<void>;
+          };
 
           log("Calling upscale API...");
           const result = await callModelEndpoint(

@@ -215,7 +215,7 @@
             "720p",
             "1080p"
           ],
-          "default": "1080p"
+          "default": "720p"
         },
         "negative_prompt": {
           "type": "string",
@@ -502,7 +502,8 @@
             "9:16",
             "Auto"
           ],
-          "default": "16:9"
+          "default": "16:9",
+          "uiKey": "aspect_ratio"
         },
         "seeds": {
           "type": "number",
@@ -585,7 +586,8 @@
             "9:16",
             "Auto"
           ],
-          "default": "16:9"
+          "default": "16:9",
+          "uiKey": "aspect_ratio"
         },
         "seeds": {
           "type": "number",

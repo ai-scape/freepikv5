@@ -37,6 +37,7 @@ import {
   type WorkspaceConnection,
 } from "../lib/api/files";
 import { useQueue } from "../state/queue";
+import { expandPrompt } from "../lib/openrouter";
 
 function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
@@ -87,6 +88,7 @@ export default function ControlsPane() {
   const [imageResolution, setImageResolution] = useState("1K");
   const [status, setStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExpanding, setIsExpanding] = useState(false);
   // const [busy, setBusy] = useState(false);
   const [isReferenceDragActive, setIsReferenceDragActive] = useState(false);
 
@@ -150,34 +152,55 @@ export default function ControlsPane() {
   }, []);
 
   useEffect(() => {
-    const ui = selectedImage?.ui;
-    const aspectOptions =
-      ui?.aspectRatios && ui.aspectRatios.length > 0
-        ? ui.aspectRatios
-        : [
-          { value: "16:9", label: "16:9" },
-          { value: "4:3", label: "4:3" },
-          { value: "1:1", label: "1:1" },
-          { value: "3:2", label: "3:2" },
-          { value: "9:16", label: "9:16" },
-        ];
+    let defaultAspect = "16:9";
+    let defaultRes = "1K";
 
-    // Prefer 16:9 if available, otherwise first option
-    const defaultAspectOption = aspectOptions.find(
-      (opt) => opt.value === "16:9" || opt.value === "landscape_16_9"
-    );
-    const defaultAspect = defaultAspectOption
-      ? defaultAspectOption.value
-      : aspectOptions[0]?.value ?? "16:9";
+    if (modelKind === "image") {
+      const ui = selectedImage?.ui;
+      const aspectOptions =
+        ui?.aspectRatios && ui.aspectRatios.length > 0
+          ? ui.aspectRatios
+          : [
+            { value: "16:9", label: "16:9" },
+            { value: "4:3", label: "4:3" },
+            { value: "1:1", label: "1:1" },
+            { value: "3:2", label: "3:2" },
+            { value: "9:16", label: "9:16" },
+          ];
+
+      // Prefer 16:9 if available, otherwise first option
+      const defaultAspectOption = aspectOptions.find(
+        (opt) => opt.value === "16:9" || opt.value === "landscape_16_9"
+      );
+      defaultAspect = defaultAspectOption
+        ? defaultAspectOption.value
+        : aspectOptions[0]?.value ?? "16:9";
+
+      if (ui?.resolutions?.length) {
+        defaultRes = ui.resolutions[0].value;
+      }
+    } else if (modelKind === "video" && selectedVideo) {
+      // Handle video defaults
+      const aspectParam = selectedVideo.params.aspect_ratio ?? selectedVideo.params.aspectRatio;
+      if (aspectParam?.values?.length) {
+        // Prefer 16:9 or Auto if available
+        const found = aspectParam.values.find(v => String(v) === "16:9" || String(v).toLowerCase() === "auto");
+        defaultAspect = found ? String(found) : String(aspectParam.values[0]);
+      }
+
+      const resParam = selectedVideo.params.resolution;
+      if (resParam?.values?.length) {
+        // Prefer 720p or 768P as reasonable defaults
+        const found = resParam.values.find(v => String(v).includes("720") || String(v).includes("768"));
+        defaultRes = found ? String(found) : String(resParam.values[0]);
+      } else {
+        defaultRes = "720p";
+      }
+    }
 
     setAspectRatio(defaultAspect);
-
-    if (ui?.resolutions?.length) {
-      setImageResolution(ui.resolutions[0].value);
-    } else {
-      setImageResolution("1K");
-    }
-  }, [selectedImage?.id, selectedImage?.ui]);
+    setImageResolution(defaultRes);
+  }, [modelKind, selectedImage, selectedVideo, modelKey]);
 
 
 
@@ -348,7 +371,7 @@ export default function ControlsPane() {
         }
       }
     },
-    [referenceUploads, registerPreview, uploadToFal, setStatus]
+    [referenceUploads, registerPreview, setStatus]
   );
 
   const removeReference = useCallback(
@@ -468,7 +491,7 @@ export default function ControlsPane() {
       definition.uiKey ??
       (key as keyof UnifiedPayload);
     // Skip rendering these - they have dedicated UI sections
-    if (uiKey === "start_frame_url" || uiKey === "end_frame_url" || uiKey === "prompt") {
+    if (uiKey === "start_frame_url" || uiKey === "end_frame_url" || uiKey === "prompt" || uiKey === "aspect_ratio" || uiKey === "resolution") {
       return null;
     }
     const value = paramValues[uiKey];
@@ -553,6 +576,35 @@ export default function ControlsPane() {
         />
       </div>
     );
+  };
+
+  const handleExpandPrompt = async (type: "natural" | "yaml") => {
+    if (!prompt.trim()) {
+      setStatus("Please enter a prompt first.");
+      setTimeout(() => setStatus(null), 3000);
+      return;
+    }
+
+    setIsExpanding(true);
+    try {
+      const mode = modelKind === "video" ? "video" : "image";
+      // Filter for valid URLs (exclude blob URLs if possible, but for now we send what we have.
+      // Note: OpenRouter/LLMs usually need public URLs or base64.
+      // `referenceUploads` contains `url` which is the Fal/KIE public URL after upload.
+      // We should use that.
+      const validReferenceUrls = referenceUploads
+        .map((ref) => ref.url)
+        .filter((url): url is string => typeof url === "string" && url.length > 0);
+
+      const expanded = await expandPrompt(prompt, type, mode, validReferenceUrls);
+      setPrompt(expanded);
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to expand prompt.");
+      setTimeout(() => setStatus(null), 3000);
+    } finally {
+      setIsExpanding(false);
+    }
   };
 
 
@@ -925,41 +977,82 @@ export default function ControlsPane() {
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Prompt
               </label>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                rows={6}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-              />
+              <div className="relative">
+                <textarea
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  rows={6}
+                  className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 pb-10"
+                />
+                <div className="absolute bottom-2 right-2 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleExpandPrompt("natural")}
+                    disabled={isExpanding || !prompt.trim()}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-slate-300 transition hover:bg-white/20 hover:text-white disabled:opacity-50"
+                    title="Expand with Natural Language"
+                  >
+                    {isExpanding ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M9 3v4" /><path d="M3 5h4" /><path d="M3 9h4" /></svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExpandPrompt("yaml")}
+                    disabled={isExpanding || !prompt.trim()}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-slate-300 transition hover:bg-white/20 hover:text-white disabled:opacity-50"
+                    title="Expand to YAML"
+                  >
+                    {isExpanding ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M12 13v6" /><path d="M12 13h-2" /><path d="M12 13h2" /></svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* 3. Aspect ratio & model-specific inputs */}
+            {/* 3. Aspect ratio & model-specific inputs */}
             <div className="space-y-2">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Aspect ratio
-                </label>
-                <select
-                  value={aspectRatio}
-                  onChange={(event) => setAspectRatio(event.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-                >
-                  {(selectedImage?.ui?.aspectRatios ??
-                    [
-                      { value: "16:9", label: "16:9" },
-                      { value: "4:3", label: "4:3" },
-                      { value: "1:1", label: "1:1" },
-                      { value: "3:2", label: "3:2" },
-                      { value: "9:16", label: "9:16" },
-                    ]).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              {(modelKind === "image" || (modelKind === "video" && (selectedVideo?.params?.aspect_ratio || selectedVideo?.params?.aspectRatio))) && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Aspect ratio
+                  </label>
+                  <select
+                    value={aspectRatio}
+                    onChange={(event) => setAspectRatio(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                  >
+                    {modelKind === "image" ? (
+                      (selectedImage?.ui?.aspectRatios ??
+                        [
+                          { value: "16:9", label: "16:9" },
+                          { value: "4:3", label: "4:3" },
+                          { value: "1:1", label: "1:1" },
+                          { value: "3:2", label: "3:2" },
+                          { value: "9:16", label: "9:16" },
+                        ]).map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))
+                    ) : (
+                      (selectedVideo?.params?.aspect_ratio?.values ?? selectedVideo?.params?.aspectRatio?.values ?? []).map((val) => (
+                        <option key={String(val)} value={String(val)}>
+                          {String(val)}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
 
-              {selectedImage?.ui?.resolutions ? (
+              {(modelKind === "image" && selectedImage?.ui?.resolutions) || (modelKind === "video" && selectedVideo?.params?.resolution) ? (
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Resolution
@@ -969,11 +1062,17 @@ export default function ControlsPane() {
                     onChange={(event) => setImageResolution(event.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                   >
-                    {selectedImage.ui.resolutions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    {modelKind === "image"
+                      ? selectedImage?.ui?.resolutions?.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))
+                      : selectedVideo?.params?.resolution?.values?.map((val) => (
+                        <option key={String(val)} value={String(val)}>
+                          {String(val)}
+                        </option>
+                      ))}
                   </select>
                 </div>
               ) : null}
@@ -1030,12 +1129,42 @@ export default function ControlsPane() {
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Prompt
               </label>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                rows={6}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-              />
+              <div className="relative">
+                <textarea
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  rows={6}
+                  className="w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 pb-10"
+                />
+                <div className="absolute bottom-2 right-2 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleExpandPrompt("natural")}
+                    disabled={isExpanding || !prompt.trim()}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-slate-300 transition hover:bg-white/20 hover:text-white disabled:opacity-50"
+                    title="Expand with Natural Language"
+                  >
+                    {isExpanding ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M9 3v4" /><path d="M3 5h4" /><path d="M3 9h4" /></svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExpandPrompt("yaml")}
+                    disabled={isExpanding || !prompt.trim()}
+                    className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-slate-300 transition hover:bg-white/20 hover:text-white disabled:opacity-50"
+                    title="Expand to YAML"
+                  >
+                    {isExpanding ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M12 13v6" /><path d="M12 13h-2" /><path d="M12 13h2" /></svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Reference Images (for video models that support it) */}
