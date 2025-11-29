@@ -244,7 +244,7 @@ This document provides a comprehensive reference for all video generation and im
 ### Nano Banana Pro
 **Provider**: KIE
 **Endpoint**: `/api/v1/jobs/createTask`
-**Pricing**: $0.12/image
+**Pricing**: $0.09/image
 
 #### Parameters
 | Parameter | Type | Required | Description | Example |
@@ -268,6 +268,68 @@ This document provides a comprehensive reference for all video generation and im
     "aspect_ratio": "1:1",
     "resolution": "1K",
     "output_format": "png"
+  }
+}
+```
+
+---
+
+### Flux 2 Pro — Image to Image
+**Provider**: KIE
+**Endpoint**: `/api/v1/jobs/createTask`
+**Pricing**: $0.025/image (1K), $0.035/image (2K)
+
+#### Parameters
+| Parameter | Type | Required | Description | Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `model` | string | Yes | Model ID | `"flux-2/pro-image-to-image"` |
+| `input.prompt` | string | Yes | Text prompt. Max 5000 chars. | `"The jar in image 1..."` |
+| `input.input_urls` | array | Yes | Input reference images (1-8). | `["https://..."]` |
+| `input.aspect_ratio` | string | Yes | Aspect ratio. Options: `"1:1"`, `"4:3"`, `"3:4"`, `"16:9"`, `"9:16"`, `"3:2"`, `"2:3"`, `"auto"`. | `"1:1"` |
+| `input.resolution` | string | Yes | Resolution. Options: `"1K"`, `"2K"`. | `"1K"` |
+| `callBackUrl` | string | No | Callback URL for notifications. | `"https://..."` |
+
+#### Request Example
+```json
+{
+  "model": "flux-2/pro-image-to-image",
+  "callBackUrl": "https://your-domain.com/api/callback",
+  "input": {
+    "input_urls": [
+      "https://static.aiquickdraw.com/tools/example/1764235041265_kjJ2sTMR.png"
+    ],
+    "prompt": "The jar in image 1 is filled with capsules...",
+    "aspect_ratio": "1:1",
+    "resolution": "1K"
+  }
+}
+```
+
+---
+
+### Flux 2 Pro — Text to Image
+**Provider**: KIE
+**Endpoint**: `/api/v1/jobs/createTask`
+**Pricing**: $0.025/image (1K), $0.035/image (2K)
+
+#### Parameters
+| Parameter | Type | Required | Description | Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `model` | string | Yes | Model ID | `"flux-2/pro-text-to-image"` |
+| `input.prompt` | string | Yes | Text prompt. Max 5000 chars. | `"Hyperrealistic supermarket..."` |
+| `input.aspect_ratio` | string | Yes | Aspect ratio. Options: `"1:1"`, `"4:3"`, `"3:4"`, `"16:9"`, `"9:16"`, `"3:2"`, `"2:3"`. | `"1:1"` |
+| `input.resolution` | string | Yes | Resolution. Options: `"1K"`, `"2K"`. | `"1K"` |
+| `callBackUrl` | string | No | Callback URL for notifications. | `"https://..."` |
+
+#### Request Example
+```json
+{
+  "model": "flux-2/pro-text-to-image",
+  "callBackUrl": "https://your-domain.com/api/callback",
+  "input": {
+    "prompt": "Hyperrealistic supermarket blister pack...",
+    "aspect_ratio": "1:1",
+    "resolution": "1K"
   }
 }
 ```

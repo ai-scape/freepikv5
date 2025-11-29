@@ -50,6 +50,7 @@ export type ImageModelSpec = {
   ui?: {
     aspectRatios?: UiOption[];
     resolutions?: UiOption[];
+    defaultResolution?: string;
     outputFormats?: UiOption[];
     maxImages?: { min: number; max: number; default: number };
     supportsSyncMode?: boolean;
@@ -155,7 +156,7 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
     label: "Nano Banana Pro — Edit",
     endpoint: "/api/v1/jobs/createTask",
     provider: "kie",
-    pricing: "$0.12/image",
+    pricing: "$0.09/image",
     taskConfig: {
       statusEndpoint: "/api/v1/jobs/recordInfo",
       statePath: "data.state",
@@ -208,6 +209,67 @@ export const IMAGE_MODELS: ImageModelSpec[] = [
           ...(resolvedAspect ? { aspect_ratio: resolvedAspect } : {}),
           ...(imageResolution ? { resolution: imageResolution } : {}),
           output_format: outputFormat ?? "png",
+        },
+      };
+    },
+    getUrls: (output) => {
+      const resultJson = (output as { resultJson?: string } | undefined)?.resultJson;
+      if (typeof resultJson === "string") {
+        try {
+          const parsed = JSON.parse(resultJson) as { resultUrls?: string[] };
+          return (parsed.resultUrls ?? []).filter(Boolean) as string[];
+        } catch {
+          // fall through
+        }
+      }
+      return [];
+    },
+  },
+  {
+    id: "flux-2-pro",
+    label: "Flux 2 Pro",
+    endpoint: "/api/v1/jobs/createTask",
+    provider: "kie",
+    pricing: "$0.025/image (1K), $0.035/image (2K)",
+    taskConfig: {
+      statusEndpoint: "/api/v1/jobs/recordInfo",
+      statePath: "data.state",
+      successStates: ["success"],
+      failureStates: ["fail"],
+      responseDataPath: "data",
+      pollIntervalMs: 4000,
+    },
+    mode: "edit",
+    maxRefs: 8,
+    ui: {
+      aspectRatios: [
+        { value: "auto", label: "Auto (Match Input)" },
+        { value: "1:1", label: "Square (1:1)" },
+        { value: "4:3", label: "Landscape (4:3)" },
+        { value: "3:4", label: "Portrait (3:4)" },
+        { value: "16:9", label: "Widescreen (16:9)" },
+        { value: "9:16", label: "Vertical (9:16)" },
+        { value: "3:2", label: "Classic (3:2)" },
+        { value: "2:3", label: "Classic Portrait (2:3)" },
+      ],
+      resolutions: [
+        { value: "1K", label: "1K" },
+        { value: "2K", label: "2K" },
+      ],
+      defaultResolution: "2K",
+    },
+    mapInput: ({ prompt, imageUrls, aspectRatio, imageResolution }) => {
+      const hasRefs = imageUrls.length > 0;
+      // For text-to-image, 'auto' aspect ratio is not valid, default to 1:1
+      const effectiveAspectRatio = (!hasRefs && aspectRatio === "auto") ? "1:1" : (aspectRatio ?? "auto");
+
+      return {
+        model: hasRefs ? "flux-2/pro-image-to-image" : "flux-2/pro-text-to-image",
+        input: {
+          prompt,
+          ...(hasRefs ? { input_urls: imageUrls.slice(0, 8) } : {}),
+          aspect_ratio: effectiveAspectRatio,
+          resolution: imageResolution ?? "2K",
         },
       };
     },

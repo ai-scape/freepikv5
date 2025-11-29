@@ -177,7 +177,7 @@ export default function ControlsPane() {
         : aspectOptions[0]?.value ?? "16:9";
 
       if (ui?.resolutions?.length) {
-        defaultRes = ui.resolutions[0].value;
+        defaultRes = ui.defaultResolution ?? ui.resolutions[0].value;
       }
     } else if (modelKind === "video" && selectedVideo) {
       // Handle video defaults
