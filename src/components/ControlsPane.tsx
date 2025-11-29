@@ -37,7 +37,7 @@ import {
   type WorkspaceConnection,
 } from "../lib/api/files";
 import { useQueue } from "../state/queue";
-import { expandPrompt } from "../lib/groq";
+import { expandPrompt } from "../lib/llm";
 
 function formatDateFolder(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, "0");
@@ -464,7 +464,7 @@ export default function ControlsPane() {
         ? videoReferenceConfig?.max ?? 0
         : selectedImage?.maxRefs ?? 0;
 
-    if (limit > 0 && referenceUploads.length > limit) {
+    if (referenceUploads.length > limit) {
       setReferenceUploads((prev) => {
         const kept = prev.slice(0, limit);
         const removed = prev.slice(limit);
@@ -600,20 +600,43 @@ export default function ControlsPane() {
     setIsExpanding(true);
     try {
       const mode = modelKind === "video" ? "video" : "image";
-      // Filter for valid URLs (exclude blob URLs if possible, but for now we send what we have.
-      // Note: OpenRouter/LLMs usually need public URLs or base64.
-      // `referenceUploads` contains `url` which is the Fal/KIE public URL after upload.
-      // We should use that.
-      const validReferenceUrls = referenceUploads
-        .map((ref) => ref.url)
-        .filter((url): url is string => typeof url === "string" && url.length > 0);
 
+      // Convert references to base64 if possible (limit 4MB) to avoid timeout/access issues
+      const validReferenceUrls: string[] = [];
+
+      for (const ref of referenceUploads) {
+        try {
+          // Fetch the local blob from the preview URL
+          const response = await fetch(ref.preview);
+          const blob = await response.blob();
+
+          if (blob.size < 4 * 1024 * 1024) {
+            // Convert to base64
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            validReferenceUrls.push(base64);
+          } else if (ref.url) {
+            // Fallback to public URL if too large
+            validReferenceUrls.push(ref.url);
+          }
+        } catch (e) {
+          console.error("Failed to process reference image:", e);
+          // Fallback to public URL if processing fails
+          if (ref.url) validReferenceUrls.push(ref.url);
+        }
+      }
+
+      console.log("Expanding prompt with refs (count):", validReferenceUrls.length);
       const expanded = await expandPrompt(prompt, type, mode, validReferenceUrls);
       setPrompt(expanded);
     } catch (error) {
-      console.error(error);
-      setStatus("Failed to expand prompt.");
-      setTimeout(() => setStatus(null), 3000);
+      console.error("Expand prompt failed:", error);
+      setStatus(`Failed to expand prompt: ${error instanceof Error ? error.message : String(error)}`);
+      setTimeout(() => setStatus(null), 5000);
     } finally {
       setIsExpanding(false);
     }

@@ -41,3 +41,19 @@ The following urgent issues identified in `TODO.md` and `TODO2.md` have been res
     -   Updated `src/lib/groq.ts` to programmatically strip markdown code blocks from the response.
     -   Updated `src/lib/prompts.ts` to enforce stricter system instructions against markdown and conversational filler.
 -   **Status**: ✅ Fixed
+
+## 7. Fixed Image URL Handling in Prompt Expansion
+-   **Issue**: User Request (Bug)
+-   **Description**: Reference images were not being cleared from the state when switching to a model that didn't support them (limit = 0), causing them to be incorrectly sent to the prompt expansion API.
+-   **Fix**: Updated the `useEffect` in `src/components/ControlsPane.tsx` to remove the `limit > 0` check, ensuring that references are cleared even when the limit is 0.
+-   **Status**: ✅ Fixed
+
+## 8. Transitioned to Fal VLM for Prompt Expansion
+-   **Issue**: User Request (Platform Switch)
+-   **Description**: The user requested to switch from OpenRouter to Fal's VLM endpoint for prompt expansion to leverage Fal's infrastructure and `google/gemini-2.5-flash` model.
+-   **Fix**:
+    -   Rewrote `src/lib/llm.ts` to use `@fal-ai/client`.
+    -   Implemented logic to dynamically switch between `openrouter/router` (text-only) and `openrouter/router/vision` (with images) endpoints.
+    -   Updated `video models kie docs.md` with the new API reference.
+    -   Configured to use `VITE_FAL_KEY` for authentication.
+-   **Status**: ✅ Fixed

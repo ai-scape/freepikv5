@@ -335,3 +335,57 @@ This document provides a comprehensive reference for all video generation and im
   "num_images": 1
 }
 ```
+
+---
+
+### Fal VLM (Prompt Expansion)
+**Provider**: FAL
+**Endpoint**: `openrouter/router/vision`
+**Pricing**: Varies by model (via OpenRouter)
+
+#### Parameters
+| Parameter | Type | Required | Description | Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `model` | string | Yes | Model ID (e.g., `google/gemini-2.5-flash`). | `"google/gemini-2.5-flash"` |
+| `prompt` | string | Yes | Text prompt. | `"Describe this image..."` |
+| `image_urls` | array | No | List of image URLs. | `["https://..."]` |
+| `system_prompt` | string | No | System instructions. | `"Be concise."` |
+| `temperature` | number | No | Creativity (0-1). Default: `1`. | `1` |
+| `max_tokens` | number | No | Max output tokens. | `1024` |
+
+#### Request Example
+```json
+{
+  "model": "google/gemini-2.5-flash",
+  "prompt": "Describe this image...",
+  "image_urls": ["https://fal.media/files/..."],
+  "system_prompt": "Be concise.",
+  "temperature": 1
+}
+```
+
+---
+
+### Fal LLM (Text-Only Prompt Expansion)
+**Provider**: FAL
+**Endpoint**: `openrouter/router`
+**Pricing**: Varies by model (via OpenRouter)
+
+#### Parameters
+| Parameter | Type | Required | Description | Example |
+| :--- | :--- | :--- | :--- | :--- |
+| `model` | string | Yes | Model ID (e.g., `google/gemini-2.5-flash`). | `"google/gemini-2.5-flash"` |
+| `prompt` | string | Yes | Text prompt. | `"Write a story..."` |
+| `system_prompt` | string | No | System instructions. | `"Be concise."` |
+| `temperature` | number | No | Creativity (0-1). Default: `1`. | `1` |
+| `max_tokens` | number | No | Max output tokens. | `1024` |
+
+#### Request Example
+```json
+{
+  "model": "google/gemini-2.5-flash",
+  "prompt": "Write a story...",
+  "system_prompt": "Be concise.",
+  "temperature": 1
+}
+```
