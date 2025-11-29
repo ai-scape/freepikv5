@@ -57,3 +57,27 @@ The following urgent issues identified in `TODO.md` and `TODO2.md` have been res
     -   Updated `video models kie docs.md` with the new API reference.
     -   Configured to use `VITE_FAL_KEY` for authentication.
 -   **Status**: ✅ Fixed
+
+## 9. Fixed File Upload Error Handling
+-   **Issue**: `TODO2.md` #10 (High - Error Swallowing)
+-   **Description**: File uploads would fail silently or with a generic error if one file failed, stopping the entire batch.
+-   **Fix**: Updated `handleDrop` in `src/components/FileBrowser.tsx` to iterate safely through files, count successes/failures, and provide detailed status feedback.
+-   **Status**: ✅ Fixed
+
+## 10. Fixed Generate UI State Reset
+-   **Issue**: `TODO2.md` #11 (High - Unhandled Promise Rejection)
+-   **Description**: The "Generating..." state could get stuck if an error occurred during job submission, as `setIsSubmitting(false)` wasn't guaranteed to run.
+-   **Fix**: Added a `finally` block to `handleGenerate` in `src/components/ControlsPane.tsx` to ensure the state is always reset.
+-   **Status**: ✅ Fixed
+
+## 11. Improved Upscale Robustness
+-   **Issue**: `TODO.md` (Medium - Upscale uses Fal URL)
+-   **Description**: The upscale feature lacked robust error handling and cleanup.
+-   **Fix**: Added `try/catch/finally` blocks to `handleUpscale` in `src/components/PreviewPane.tsx` to handle errors gracefully and ensure the busy state is reset.
+-   **Status**: ✅ Fixed
+
+## 12. Fixed Video Tab VLM Prompt Expansion
+-   **Issue**: User Request (Bug)
+-   **Description**: The prompt expansion in the Video tab was not including uploaded start/end frames in the VLM request, causing it to fallback to text-only mode or miss context.
+-   **Fix**: Updated `handleExpandPrompt` in `src/components/ControlsPane.tsx` to explicitly process and include `startFrame` and `endFrame` images when in video mode.
+-   **Status**: ✅ Fixed

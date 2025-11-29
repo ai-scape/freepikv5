@@ -601,32 +601,45 @@ export default function ControlsPane() {
     try {
       const mode = modelKind === "video" ? "video" : "image";
 
-      // Convert references to base64 if possible (limit 4MB) to avoid timeout/access issues
-      const validReferenceUrls: string[] = [];
-
-      for (const ref of referenceUploads) {
+      // Helper to process any image reference (upload or slot)
+      const processRef = async (ref: { preview?: string; url?: string }) => {
         try {
-          // Fetch the local blob from the preview URL
-          const response = await fetch(ref.preview);
-          const blob = await response.blob();
-
-          if (blob.size < 4 * 1024 * 1024) {
-            // Convert to base64
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-            validReferenceUrls.push(base64);
-          } else if (ref.url) {
-            // Fallback to public URL if too large
-            validReferenceUrls.push(ref.url);
+          if (ref.preview) {
+            const response = await fetch(ref.preview);
+            const blob = await response.blob();
+            if (blob.size < 4 * 1024 * 1024) {
+              return await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            }
           }
+          return ref.url;
         } catch (e) {
           console.error("Failed to process reference image:", e);
-          // Fallback to public URL if processing fails
-          if (ref.url) validReferenceUrls.push(ref.url);
+          return ref.url;
+        }
+      };
+
+      const validReferenceUrls: string[] = [];
+
+      // Process standard reference uploads
+      for (const ref of referenceUploads) {
+        const result = await processRef(ref);
+        if (result) validReferenceUrls.push(result);
+      }
+
+      // If in video mode, also check start/end frames
+      if (mode === "video") {
+        if (startFrame.preview || startFrame.url) {
+          const result = await processRef(startFrame);
+          if (result) validReferenceUrls.push(result);
+        }
+        if (endFrame.preview || endFrame.url) {
+          const result = await processRef(endFrame);
+          if (result) validReferenceUrls.push(result);
         }
       }
 

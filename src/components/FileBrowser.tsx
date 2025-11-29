@@ -107,14 +107,31 @@ export default function FileBrowser() {
     try {
       const { uploadFile } = await import("../lib/api/files");
 
+      let successCount = 0;
+      let failCount = 0;
+
       for (const file of files) {
-        await uploadFile(connection, file.name, file);
+        try {
+          await uploadFile(connection, file.name, file);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to upload ${file.name}:`, err);
+          failCount++;
+        }
       }
+
       await refreshTree();
-      setUploadStatus(null);
+
+      if (failCount > 0) {
+        setUploadStatus(`Uploaded ${successCount} files. ${failCount} failed.`);
+      } else {
+        setUploadStatus(`Uploaded ${successCount} files successfully.`);
+      }
+
+      setTimeout(() => setUploadStatus(null), 3000);
     } catch (error) {
-      console.error("Upload failed:", error);
-      setUploadStatus("Upload failed");
+      console.error("Upload process failed:", error);
+      setUploadStatus("Upload process failed");
       setTimeout(() => setUploadStatus(null), 3000);
     }
   };

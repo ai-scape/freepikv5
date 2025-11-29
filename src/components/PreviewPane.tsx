@@ -482,15 +482,15 @@ export default function PreviewPane({
       );
 
       setUpscaleStatus("Upscale job queued.");
-      setTimeout(() => setUpscaleStatus(null), 3000);
+      setTimeout(() => setUpscaleStatus(null));
 
     } catch (error) {
-      console.error("Upscale error:", error);
-      setUpscaleStatus(error instanceof Error ? error.message : "Upscale failed.");
+      console.error("Upscale failed:", error);
+      setUpscaleStatus(`Upscale failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setUpscaleBusy(false);
     }
-  }, [connection, selected, previewUrl, addJob, refreshTree]);
+  }, [connection, selected, previewUrl, refreshTree, addJob]);
 
   useEffect(() => {
     if (!connection || !selected || selected.kind === "dir") {
