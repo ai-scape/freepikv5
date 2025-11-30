@@ -124,6 +124,27 @@ export async function fetchFileBlob(
   return response.blob();
 }
 
+export async function getMetadata(
+  connection: WorkspaceConnection,
+  relPath: string
+): Promise<Record<string, unknown>> {
+  const url = new URL("/metadata", connection.apiBase);
+  url.searchParams.set("workspace", connection.workspaceId);
+  url.searchParams.set("path", relPath);
+
+  const response = await fetch(url.toString(), {
+    headers: authHeaders(connection.token),
+  });
+
+  if (!response.ok) {
+    // If 404 or other error, return empty object to avoid breaking UI
+    console.warn(`Failed to fetch metadata for ${relPath}: ${response.statusText}`);
+    return {};
+  }
+
+  return response.json();
+}
+
 export async function deleteFile(
   connection: WorkspaceConnection,
   relPath: string

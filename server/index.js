@@ -307,6 +307,40 @@ server.post("/files", async (request, reply) => {
   });
 });
 
+// GET /metadata
+server.get("/metadata", async (request, reply) => {
+  const { workspace, path: relPath } = request.query;
+
+  if (!workspace || !relPath) {
+    return reply.code(400).send({ error: "Missing workspace or path" });
+  }
+
+  try {
+    const workspaceId = sanitizeWorkspaceId(workspace);
+    const workspaceDir = await ensureWorkspaceDir(workspaceId);
+    const safeRelPath = sanitizeRelPath(relPath);
+    const targetPath = toSafePath(workspaceDir, safeRelPath);
+
+    // Check if file exists
+    await fs.access(targetPath);
+
+    // Read file (we need the whole file to safely parse chunks, or at least stream it)
+    // NOTE: For very large files this might be inefficient, but we only expect images here.
+    const buffer = await fs.readFile(targetPath);
+
+    const { extractMetadata } = await import("./metadata.js");
+    const metadata = extractMetadata(buffer);
+
+    return reply.send(metadata || {});
+  } catch (error) {
+    request.log.error(error);
+    if (error.code === "ENOENT") {
+      return reply.code(404).send({ error: "File not found" });
+    }
+    return reply.code(500).send({ error: "Failed to read metadata" });
+  }
+});
+
 server.delete("/files", async (request, reply) => {
   let { workspace, path: relPath } = request.body ?? {};
   try {

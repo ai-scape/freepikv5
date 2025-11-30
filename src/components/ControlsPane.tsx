@@ -106,6 +106,75 @@ export default function ControlsPane() {
     };
   }, []);
 
+  // Listen for "recreate-generation" event
+  useEffect(() => {
+    const handleRecreate = (event: CustomEvent<Record<string, unknown>>) => {
+      const metadata = event.detail;
+      if (!metadata) return;
+
+      // 1. Set Prompt
+      if (typeof metadata.prompt === "string") {
+        setPrompt(metadata.prompt);
+      }
+
+      // 2. Set Model
+      if (typeof metadata.modelId === "string") {
+        const modelId = metadata.modelId;
+        // Check if it's an image or video model
+        const isImage = IMAGE_MODELS.some(m => m.id === modelId);
+        const isVideo = MODEL_SPECS.some(m => m.id === modelId);
+
+        if (isImage) {
+          setActiveTab("image");
+          setModelKey(`image:${modelId}`);
+        } else if (isVideo) {
+          setActiveTab("video");
+          setModelKey(`video:${modelId}`);
+        }
+      }
+
+      // 3. Set Aspect Ratio
+      if (typeof metadata.aspect_ratio === "string") {
+        setAspectRatio(metadata.aspect_ratio);
+      }
+
+      // 4. Set Resolution
+      if (typeof metadata.resolution === "string") {
+        setImageResolution(metadata.resolution);
+      }
+
+      // 5. Set Seed (if present)
+      if (metadata.seed !== undefined) {
+        setSeed(String(metadata.seed));
+      }
+
+      // 6. Set Dynamic Params
+      // We iterate over keys and set them if they match known params
+      // Excluding standard keys we already handled
+      const standardKeys = ["prompt", "modelId", "aspect_ratio", "resolution", "seed", "start_frame_url", "end_frame_url", "reference_image_urls"];
+
+      const newParams: Record<string, string | number | boolean | undefined> = {};
+      Object.entries(metadata).forEach(([key, value]) => {
+        if (!standardKeys.includes(key) && value !== undefined && value !== null) {
+          // Basic type check
+          if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+            newParams[key] = value;
+          }
+        }
+      });
+
+      setParamValues(prev => ({ ...prev, ...newParams }));
+
+      setStatus("Restored settings from image metadata.");
+      setTimeout(() => setStatus(null), 3000);
+    };
+
+    window.addEventListener("recreate-generation", handleRecreate as EventListener);
+    return () => {
+      window.removeEventListener("recreate-generation", handleRecreate as EventListener);
+    };
+  }, []);
+
   const [paramValues, setParamValues] = useState<
     Record<string, string | number | boolean | undefined>
   >({});

@@ -795,82 +795,131 @@ export default function PreviewPane({
                       ↻
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownload()}
-                    className="rounded-lg border border-white/10 p-1.5 text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
-                    title="Download original"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                  </button>
-                </div>
-                {captureStatus ? (
-                  <div className="mt-2 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px]">
-                    {captureStatus}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!connection || !selected) return;
+                        try {
+                          // Dynamic import to avoid circular dependency issues if any
+                          const { getMetadata } = await import("../lib/api/files");
+                          const metadata = await getMetadata(connection, selected.relPath);
 
-            {selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
-              <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
+                          if (Object.keys(metadata).length === 0) {
+                            setError("No metadata found in this file.");
+                            setTimeout(() => setError(null), 3000);
+                            return;
+                          }
+
+                          // Dispatch event
+                          window.dispatchEvent(new CustomEvent("recreate-generation", { detail: metadata }));
+                        } catch (e) {
+                          console.error("Recreate failed:", e);
+                          setError("Failed to read metadata.");
+                        }
+                      }}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                      title="Use these settings to generate again"
+                    >
+                      Recreate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload()}
+                      className="rounded-lg border border-white/10 p-1.5 text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                      title="Download original"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </button>
+                  </div>
+                  {captureStatus ? (
+                    <div className="mt-2 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px]">
+                      {captureStatus}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : selected && selected.kind === "file" && selected.mime.startsWith("image") ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-slate-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={cropBusy || upscaleBusy}
+                      onClick={() => void handleCropSave()}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {cropBusy ? "..." : "Crop"}
+                    </button>
                     <select
                       value={cropAspect}
-                      onChange={(event) => setCropAspect(event.target.value)}
-                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                      onChange={(e) => setCropAspect(e.target.value)}
+                      disabled={cropBusy}
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-slate-100 outline-none focus:border-sky-400"
                     >
-                      {cropPresets.map((preset) => (
-                        <option key={preset.value} value={preset.value}>
-                          {preset.label}
+                      {cropPresets.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label}
                         </option>
                       ))}
                     </select>
                     <button
                       type="button"
-                      disabled={cropBusy}
-                      onClick={() => void handleCropSave()}
-                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={upscaleBusy || cropBusy}
+                      onClick={() => void handleUpscale()}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {cropBusy ? "Cropping…" : "Crop"}
+                      {upscaleBusy ? "..." : "Upscale"}
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!connection || !selected) return;
+                        try {
+                          const { getMetadata } = await import("../lib/api/files");
+                          const metadata = await getMetadata(connection, selected.relPath);
+
+                          if (Object.keys(metadata).length === 0) {
+                            // Show error in a temporary way or just log
+                            // We don't have a dedicated status for this in image mode easily accessible here without state
+                            // But we can use the error state of the preview pane
+                            setError("No metadata found in this file.");
+                            setTimeout(() => setError(null), 3000);
+                            return;
+                          }
+
+                          window.dispatchEvent(new CustomEvent("recreate-generation", { detail: metadata }));
+                        } catch (e) {
+                          console.error("Recreate failed:", e);
+                          setError("Failed to read metadata.");
+                        }
+                      }}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                      title="Use these settings to generate again"
+                    >
+                      Recreate
                     </button>
                     <button
                       type="button"
-                      disabled={upscaleBusy}
-                      onClick={() => void handleUpscale()}
-                      className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void handleDownload()}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
                     >
-                      {upscaleBusy ? "Upscaling…" : "Upscale"}
+                      Download
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownload()}
-                    className="rounded-lg border border-white/10 p-1.5 text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
-                    title="Download original"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                  </button>
                 </div>
-                {cropStatus ? (
-                  <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
-                    {cropStatus}
-                  </div>
-                ) : null}
-                {upscaleStatus ? (
-                  <div className="rounded-md border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-slate-200">
-                    {upscaleStatus}
-                  </div>
-                ) : null}
+                {cropStatus && (
+                  <div className="mt-2 text-center text-sky-300">{cropStatus}</div>
+                )}
+                {upscaleStatus && (
+                  <div className="mt-2 text-center text-sky-300">{upscaleStatus}</div>
+                )}
               </div>
             ) : null}
           </>

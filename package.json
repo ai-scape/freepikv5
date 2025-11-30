@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "node server/index.js",
+    "dev:server": "node --watch server/index.js",
     "dev:all": "concurrently \"npm:dev:server\" \"npm:dev\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

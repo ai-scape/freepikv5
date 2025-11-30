@@ -108,3 +108,66 @@ export function embedMetadata(buffer, metadata) {
         return buffer;
     }
 }
+
+/**
+ * Extracts metadata from a PNG buffer.
+ * @param {Buffer} buffer - The PNG buffer.
+ * @returns {Record<string, any> | null} - The extracted metadata or null if not found.
+ */
+export function extractMetadata(buffer) {
+    // Check for PNG signature
+    if (
+        buffer[0] !== 0x89 ||
+        buffer[1] !== 0x50 ||
+        buffer[2] !== 0x4e ||
+        buffer[3] !== 0x47 ||
+        buffer[4] !== 0x0d ||
+        buffer[5] !== 0x0a ||
+        buffer[6] !== 0x1a ||
+        buffer[7] !== 0x0a
+    ) {
+        return null;
+    }
+
+    let offset = 8; // Skip signature
+
+    while (offset < buffer.length) {
+        // Read chunk length
+        if (offset + 4 > buffer.length) break;
+        const length = buffer.readUInt32BE(offset);
+        offset += 4;
+
+        // Read chunk type
+        if (offset + 4 > buffer.length) break;
+        const type = buffer.toString("ascii", offset, offset + 4);
+        offset += 4;
+
+        // Check for tEXt chunk
+        if (type === "tEXt") {
+            const dataStart = offset;
+            const dataEnd = offset + length;
+            if (dataEnd > buffer.length) break;
+
+            const data = buffer.subarray(dataStart, dataEnd);
+            // Find null separator
+            const nullIndex = data.indexOf(0);
+            if (nullIndex !== -1) {
+                const keyword = data.toString("latin1", 0, nullIndex);
+                if (keyword === "parameters") {
+                    const text = data.toString("latin1", nullIndex + 1);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error("Failed to parse metadata JSON:", e);
+                        return null;
+                    }
+                }
+            }
+        }
+
+        // Skip data and CRC
+        offset += length + 4;
+    }
+
+    return null;
+}
