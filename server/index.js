@@ -8,6 +8,7 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import mime from "mime-types";
 import dotenv from "dotenv";
+import { embedMetadata } from "./metadata.js";
 
 // Load env files: .env.server overrides .env if both exist.
 dotenv.config({
@@ -261,7 +262,25 @@ server.post("/files", async (request, reply) => {
 
         const stats = await fs.stat(targetPath);
         const ext = (path.extname(relPath).replace(".", "") || "").toLowerCase();
-        savedStats = stats;
+
+        // Embed metadata if provided and file is PNG
+        if (ext === "png" && request.query.metadata) {
+          try {
+            const metadata = JSON.parse(request.query.metadata);
+            const buffer = await fs.readFile(targetPath);
+            const newBuffer = embedMetadata(buffer, metadata);
+            await fs.writeFile(targetPath, newBuffer);
+            // Update stats after modification
+            const newStats = await fs.stat(targetPath);
+            savedStats = newStats;
+          } catch (e) {
+            console.error("Failed to embed metadata:", e);
+            savedStats = stats;
+          }
+        } else {
+          savedStats = stats;
+        }
+
         savedMime = mime.lookup(ext) || "application/octet-stream";
         fileProcessed = true;
       } else {

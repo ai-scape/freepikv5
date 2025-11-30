@@ -135,6 +135,7 @@ export async function callKie(
       return {
         url: taskUrl,
         blob: await downloadBlob(taskUrl),
+        metadata: isRecord(finalData) ? (finalData as Record<string, unknown>) : undefined,
       };
     }
 
@@ -153,7 +154,10 @@ export async function callKie(
         : "application/octet-stream"
     );
     if (taskBytes) {
-      return { blob: taskBytes };
+      return {
+        blob: taskBytes,
+        metadata: isRecord(finalData) ? (finalData as Record<string, unknown>) : undefined,
+      };
     }
 
     const logger = options?.log;

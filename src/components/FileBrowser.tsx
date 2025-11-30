@@ -8,6 +8,28 @@ import { PublishModal } from "./PublishModal";
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
 const VIDEO_EXTS = ["mp4", "webm", "mov", "mkv"];
 
+function calculateAspectRatio(width: number, height: number): string {
+  if (!width || !height) return "";
+
+  // Common ratios to check against (with small tolerance)
+  const ratio = width / height;
+  const tolerance = 0.05;
+
+  if (Math.abs(ratio - 16 / 9) < tolerance) return "16:9";
+  if (Math.abs(ratio - 9 / 16) < tolerance) return "9:16";
+  if (Math.abs(ratio - 4 / 3) < tolerance) return "4:3";
+  if (Math.abs(ratio - 3 / 4) < tolerance) return "3:4";
+  if (Math.abs(ratio - 1) < tolerance) return "1:1";
+  if (Math.abs(ratio - 3 / 2) < tolerance) return "3:2";
+  if (Math.abs(ratio - 2 / 3) < tolerance) return "2:3";
+  if (Math.abs(ratio - 21 / 9) < tolerance) return "21:9";
+
+  // Fallback to GCD
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const divisor = gcd(Math.round(width), Math.round(height));
+  return `${Math.round(width) / divisor}:${Math.round(height) / divisor}`;
+}
+
 export default function FileBrowser() {
   const {
     state: { entries, q, filterExt, selected, loading, connection },
@@ -534,9 +556,9 @@ export default function FileBrowser() {
                               className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
                             />
                           ) : (
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center justify-between gap-2 min-w-0">
                               <div
-                                className="font-semibold text-white truncate"
+                                className="font-semibold text-white truncate min-w-0"
                                 title={entry.name}
                                 onDoubleClick={(e) => {
                                   e.stopPropagation();
@@ -548,12 +570,8 @@ export default function FileBrowser() {
                                 {entry.kind === "dir" ? "/" : ""}
                               </div>
                               {dims && (
-                                <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono">
-                                  {dims.w}x{dims.h} ({(() => {
-                                    const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
-                                    const div = gcd(dims.w, dims.h);
-                                    return `${dims.w / div}:${dims.h / div}`;
-                                  })()})
+                                <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono whitespace-nowrap ml-2">
+                                  {dims.w}x{dims.h} ({calculateAspectRatio(dims.w, dims.h)})
                                 </span>
                               )}
                             </div>

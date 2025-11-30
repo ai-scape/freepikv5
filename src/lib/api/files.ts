@@ -78,12 +78,16 @@ export async function listFiles(
 export async function uploadFile(
   connection: WorkspaceConnection,
   relPath: string,
-  blob: Blob
+  blob: Blob,
+  metadata?: Record<string, unknown>
 ): Promise<void> {
   const url = new URL("/files", connection.apiBase);
   // Pass metadata in query params so server can process stream immediately
   url.searchParams.set("workspace", connection.workspaceId);
   url.searchParams.set("path", relPath);
+  if (metadata) {
+    url.searchParams.set("metadata", JSON.stringify(metadata));
+  }
 
   const form = new FormData();
   // We don't need to append workspace/path to form anymore

@@ -848,9 +848,25 @@ export default function ControlsPane() {
           const filename = buildFilename(modelId, prompt, extension, seed);
           const relPath = `${dateFolder}/${filename}`;
 
+          // Merge input payload with result metadata for a complete record
+          const finalMetadata = {
+            // 1. The raw payload sent to the model (provider-specific)
+            ...payload,
+            // 2. The raw result metadata from the provider (actual execution details)
+            ...(result.metadata ?? {}),
+            // 3. Standardized high-level fields (overwriting if necessary to ensure they exist in a standard format)
+            prompt,
+            modelId,
+            seed,
+            aspect_ratio: aspectRatio,
+            resolution: imageResolution,
+            // Include dynamic params
+            ...paramValues,
+          };
+
           log("Saving to workspace...");
           if (connection) {
-            await uploadFile(connection, relPath, downloadedBlob);
+            await uploadFile(connection, relPath, downloadedBlob, finalMetadata);
             await refreshTree(relPath);
           }
 

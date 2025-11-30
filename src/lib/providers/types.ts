@@ -3,6 +3,7 @@ export type ModelProvider = "fal" | "kie" | "fal-client";
 export type ProviderCallResult = {
   url?: string;
   blob?: Blob;
+  metadata?: Record<string, unknown>;
 };
 
 export type TaskPollingConfig = {

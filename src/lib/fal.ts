@@ -69,6 +69,7 @@ export async function callFal(
     return {
       url,
       blob: await downloadBlob(url),
+      metadata: data,
     };
   }
 
@@ -82,7 +83,10 @@ export async function callFal(
   );
 
   if (maybeBytes) {
-    return { blob: maybeBytes };
+    return {
+      blob: maybeBytes,
+      metadata: data,
+    };
   }
 
   throw new Error("Unable to locate asset payload in FAL response.");
@@ -114,6 +118,7 @@ export async function callFalSubscribe(
       return {
         url,
         blob: await downloadBlob(url),
+        metadata: result.data as Record<string, unknown>,
       };
     }
 
