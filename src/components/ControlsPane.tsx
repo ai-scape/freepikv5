@@ -62,10 +62,10 @@ type ReferenceUpload = {
 
 
 
-const DEFAULT_MODEL_KEY = MODEL_SPECS.length
-  ? `video:${DEFAULT_MODEL_ID || MODEL_SPECS[0].id}`
-  : IMAGE_MODELS.length
-    ? `image:${IMAGE_MODELS[0].id}`
+const DEFAULT_MODEL_KEY = IMAGE_MODELS.length
+  ? `image:${IMAGE_MODELS[0].id}`
+  : MODEL_SPECS.length
+    ? `video:${DEFAULT_MODEL_ID || MODEL_SPECS[0].id}`
     : "";
 
 export default function ControlsPane() {

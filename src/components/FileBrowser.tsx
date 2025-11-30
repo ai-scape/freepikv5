@@ -8,6 +8,15 @@ import { PublishModal } from "./PublishModal";
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
 const VIDEO_EXTS = ["mp4", "webm", "mov", "mkv"];
 
+function formatBytes(bytes: number, decimals = 1) {
+  if (!+bytes) return "0 B";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 function calculateAspectRatio(width: number, height: number): string {
   if (!width || !height) return "";
 
@@ -556,7 +565,8 @@ export default function FileBrowser() {
                               className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
                             />
                           ) : (
-                            <div className="flex items-center justify-between gap-2 min-w-0">
+                            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 min-w-0 flex-1 mr-2">
+                              {/* Column 1: Filename */}
                               <div
                                 className="font-semibold text-white truncate min-w-0"
                                 title={entry.name}
@@ -569,11 +579,22 @@ export default function FileBrowser() {
                                 {entry.name}
                                 {entry.kind === "dir" ? "/" : ""}
                               </div>
-                              {dims && (
-                                <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono whitespace-nowrap ml-2">
-                                  {dims.w}x{dims.h} ({calculateAspectRatio(dims.w, dims.h)})
-                                </span>
-                              )}
+
+                              {/* Column 2: Resolution/Aspect Ratio */}
+                              <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap w-24 text-right">
+                                {dims ? (
+                                  <span>
+                                    {dims.w}x{dims.h} ({calculateAspectRatio(dims.w, dims.h)})
+                                  </span>
+                                ) : (
+                                  <span className="opacity-0">-</span>
+                                )}
+                              </div>
+
+                              {/* Column 3: File Size */}
+                              <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap w-16 text-right">
+                                {entry.kind === "file" ? formatBytes(entry.size) : "-"}
+                              </div>
                             </div>
                           )}
                         </div>
