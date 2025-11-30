@@ -501,36 +501,7 @@ export default function FileBrowser() {
                     className={`group flex w-full items-center justify-between gap-3 border-l-4 px-3 py-2 text-left text-sm transition ${selected?.id === entry.id ? "bg-yellow-500/20" : ""
                       } ${styles.list}`}
                   >
-                    {/* Hidden media for metadata capture */}
-                    {!dims && entry.kind === "file" && (
-                      <div className="hidden">
-                        {entry.mime.startsWith("video") ? (
-                          <video
-                            src={url}
-                            preload="metadata"
-                            onLoadedMetadata={(e) => {
-                              const target = e.target as HTMLVideoElement;
-                              setFileDims((prev) => ({
-                                ...prev,
-                                [entry.id]: { w: target.videoWidth, h: target.videoHeight },
-                              }));
-                            }}
-                          />
-                        ) : entry.mime.startsWith("image") ? (
-                          <img
-                            src={url}
-                            loading="lazy"
-                            onLoad={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              setFileDims((prev) => ({
-                                ...prev,
-                                [entry.id]: { w: target.naturalWidth, h: target.naturalHeight },
-                              }));
-                            }}
-                          />
-                        ) : null}
-                      </div>
-                    )}
+                    {/* Hidden media for metadata capture - REMOVED for memory optimization */}
 
                     <div className="flex-1 min-w-0">
                       {editingId === entry.id ? (
