@@ -97,6 +97,15 @@ export default function ControlsPane() {
 
 
   const previewRegistry = useRef(new Set<string>());
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const [paramValues, setParamValues] = useState<
     Record<string, string | number | boolean | undefined>
   >({});
@@ -458,6 +467,12 @@ export default function ControlsPane() {
     setParamValues(defaults);
   }, [selectedVideo]);
 
+  // Use a ref for releasePreview to avoid it being a dependency that could trigger re-runs
+  const releasePreviewRef = useRef(releasePreview);
+  useEffect(() => {
+    releasePreviewRef.current = releasePreview;
+  }, [releasePreview]);
+
   useEffect(() => {
     const limit =
       modelKind === "video"
@@ -470,7 +485,7 @@ export default function ControlsPane() {
         const removed = prev.slice(limit);
         removed.forEach((entry) => {
           if (entry.preview) {
-            releasePreview(entry.preview);
+            releasePreviewRef.current(entry.preview);
           }
         });
         return kept;
@@ -481,7 +496,6 @@ export default function ControlsPane() {
     selectedImage?.maxRefs,
     videoReferenceConfig?.max,
     referenceUploads.length,
-    releasePreview,
   ]);
 
   const handleParamChange = (
@@ -614,6 +628,11 @@ export default function ControlsPane() {
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
               });
+            } else {
+              // Image too large for base64, check if we have a valid public URL
+              if (!ref.url || ref.url.includes("localhost") || ref.url.includes("127.0.0.1")) {
+                throw new Error("Image too large for VLM (max 4MB) and no public URL available.");
+              }
             }
           }
           return ref.url;
@@ -651,7 +670,9 @@ export default function ControlsPane() {
       setStatus(`Failed to expand prompt: ${error instanceof Error ? error.message : String(error)}`);
       setTimeout(() => setStatus(null), 5000);
     } finally {
-      setIsExpanding(false);
+      if (isMounted.current) {
+        setIsExpanding(false);
+      }
     }
   };
 
@@ -669,6 +690,8 @@ export default function ControlsPane() {
 
     // Artificial delay for UX
     await new Promise((resolve) => setTimeout(resolve, 600));
+
+    if (!isMounted.current) return;
 
     try {
       const modelId = modelKey.replace(/^(image:|video:|upscale:)/, "");
@@ -834,11 +857,13 @@ export default function ControlsPane() {
           return resultUrlStr || "Blob saved";
         }
       );
-      setIsSubmitting(false);
     } catch (error) {
-      setIsSubmitting(false);
       console.error(error);
       setStatus(error instanceof Error ? error.message : "Generation failed");
+    } finally {
+      if (isMounted.current) {
+        setIsSubmitting(false);
+      }
     }
   };
 

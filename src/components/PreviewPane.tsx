@@ -787,6 +787,18 @@ export default function PreviewPane({
                     >
                       End
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (videoRef.current) {
+                          videoRef.current.load();
+                        }
+                      }}
+                      className="rounded-lg border border-white/10 px-2 py-1 font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-200"
+                      title="Reload video if stuck"
+                    >
+                      ↻
+                    </button>
                   </div>
                   <button
                     type="button"
