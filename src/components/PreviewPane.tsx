@@ -61,13 +61,7 @@ export default function PreviewPane({
     event.dataTransfer.effectAllowed = "copy";
   };
 
-  const parseAspectRatio = useCallback((value: string): number | null => {
-    const parts = value.split(":");
-    if (parts.length !== 2) return null;
-    const [w, h] = parts.map((part) => Number(part));
-    if (!Number.isFinite(w) || !Number.isFinite(h) || h === 0) return null;
-    return w / h;
-  }, []);
+
 
   useEffect(() => {
     setCanCapture(false);
@@ -266,11 +260,12 @@ export default function PreviewPane({
       setCropStatus("No image available to crop.");
       return;
     }
-    const ratio = parseAspectRatio(cropAspect);
-    if (ratio === null) {
+    const parts = cropAspect.split(":").map(Number);
+    if (parts.length !== 2 || parts.some((p) => !Number.isFinite(p) || p <= 0)) {
       setCropStatus("Invalid aspect ratio.");
       return;
     }
+    const [ratioW, ratioH] = parts;
 
     setCropBusy(true);
     setCropStatus("Preparing crop…");
@@ -287,18 +282,17 @@ export default function PreviewPane({
       if (!imgWidth || !imgHeight) {
         throw new Error("Unable to read image dimensions.");
       }
-      const imageRatio = imgWidth / imgHeight;
-      let cropWidth = imgWidth;
-      let cropHeight = imgHeight;
-      if (imageRatio > ratio) {
-        cropWidth = Math.min(imgWidth, Math.round(imgHeight * ratio));
-        cropHeight = imgHeight;
-      } else {
-        cropWidth = imgWidth;
-        cropHeight = Math.min(imgHeight, Math.round(imgWidth / ratio));
-      }
-      const sx = Math.max(0, Math.floor((imgWidth - cropWidth) / 2));
-      const sy = Math.max(0, Math.floor((imgHeight - cropHeight) / 2));
+
+      // Exact integer aspect ratio cropping
+      const kW = Math.floor(imgWidth / ratioW);
+      const kH = Math.floor(imgHeight / ratioH);
+      const k = Math.min(kW, kH);
+
+      const cropWidth = k * ratioW;
+      const cropHeight = k * ratioH;
+
+      const sx = Math.floor((imgWidth - cropWidth) / 2);
+      const sy = Math.floor((imgHeight - cropHeight) / 2);
 
       const canvas = document.createElement("canvas");
       canvas.width = cropWidth;
@@ -341,7 +335,7 @@ export default function PreviewPane({
     } finally {
       setCropBusy(false);
     }
-  }, [cropAspect, parseAspectRatio, previewUrl, selected, connection, refreshTree]);
+  }, [cropAspect, previewUrl, selected, connection, refreshTree]);
 
   const handleUpscale = useCallback(async () => {
     if (!connection || !selected || selected.kind !== "file" || !selected.mime.startsWith("image")) {

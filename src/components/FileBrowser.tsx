@@ -158,14 +158,26 @@ export default function FileBrowser() {
     const query = q.trim().toLowerCase();
     return entries.filter((entry) => {
       if (!connection) return false;
+
+      // 1. Basic Exclusion: No directories, no dotfiles
+      if (entry.kind === "dir") return false;
+      if (entry.name.startsWith(".")) return false;
+
+      // 2. Mime Type Check: Only images and videos
+      const isMedia = entry.mime.startsWith("image/") || entry.mime.startsWith("video/");
+      if (!isMedia) return false;
+
+      // 3. Search Query
       const matchesQuery = query
         ? entry.name.toLowerCase().includes(query) ||
         entry.relPath.toLowerCase().includes(query)
         : true;
+
+      // 4. Extension Filter (if active)
       const matchesExt =
         filterExt.length === 0 ||
-        entry.kind === "dir" ||
         filterExt.includes(entry.ext);
+
       return matchesQuery && matchesExt;
     });
   }, [entries, q, filterExt, connection]);
