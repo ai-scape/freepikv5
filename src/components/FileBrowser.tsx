@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useCatalog } from "../state/useCatalog";
-import { type FileEntry, getFileUrl, publishFile } from "../lib/api/files";
+import { type FileEntry, getFileUrl, publishFile, uploadFile } from "../lib/api/files";
 import { FILE_ENTRY_MIME } from "../lib/drag-constants";
 import { Spinner } from "./ui/Spinner";
 import { PublishModal } from "./PublishModal";
@@ -105,7 +105,7 @@ export default function FileBrowser() {
     setUploadStatus(`Uploading ${files.length} file(s)...`);
 
     try {
-      const { uploadFile } = await import("../lib/api/files");
+      // const { uploadFile } = await import("../lib/api/files");
 
       let successCount = 0;
       let failCount = 0;
@@ -154,6 +154,13 @@ export default function FileBrowser() {
     }
   };
 
+  const [visibleCount, setVisibleCount] = useState(30);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [q, filterExt, connection?.workspaceId]);
+
   const filteredEntries = useMemo(() => {
     const query = q.trim().toLowerCase();
     return entries.filter((entry) => {
@@ -182,7 +189,10 @@ export default function FileBrowser() {
     });
   }, [entries, q, filterExt, connection]);
 
-  // Cleanup fileDims for removed files
+  const visibleEntries = useMemo(() => {
+    return filteredEntries.slice(0, visibleCount);
+  }, [filteredEntries, visibleCount]);
+
   // Cleanup fileDims for removed files
   useEffect(() => {
     setFileDims((prev) => {
@@ -265,7 +275,10 @@ export default function FileBrowser() {
         </div>
         <button
           type="button"
-          onClick={() => refreshTree()}
+          onClick={() => {
+            refreshTree();
+            setVisibleCount(30);
+          }}
           className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
         >
           Refresh
@@ -347,181 +360,97 @@ export default function FileBrowser() {
             <div className="mb-1">🔍 No files match your search</div>
             <div className="text-xs text-slate-400">Try a different search term or clear your filters</div>
           </div>
-        ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3">
-            {filteredEntries.map((entry) => {
-              const url = getFileUrl(connection, entry.relPath, { includeToken: true });
-              const styles = getFileStyles(entry);
-
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  draggable={entry.kind === "file"}
-                  onDragStart={(event) => {
-                    if (entry.kind === "file") {
-                      event.dataTransfer.setData(
-                        FILE_ENTRY_MIME,
-                        JSON.stringify({
-                          workspaceId: connection.workspaceId,
-                          path: entry.relPath,
-                          name: entry.name,
-                          mime: entry.mime,
-                        })
-                      );
-                      event.dataTransfer.effectAllowed = "copy";
-                      event.dataTransfer.setData("DownloadURL", `${entry.mime}:${entry.name}:${url}`);
-                    }
-                  }}
-                  onClick={() => select(entry)}
-                  className={`group relative flex aspect-square flex-col overflow-hidden rounded-lg border transition ${selected?.id === entry.id ? "ring-2 ring-yellow-500" : ""
-                    } ${styles.grid}`}
-                >
-                  <div className="flex-1 w-full overflow-hidden bg-white/5">
-                    {entry.kind === "dir" ? (
-                      <div className="flex h-full items-center justify-center text-4xl">
-                        📁
-                      </div>
-                    ) : entry.mime.startsWith("video") ? (
-                      <video
-                        src={url}
-                        className="h-full w-full object-cover"
-                        preload="metadata"
-                        muted
-                        loop
-                        onMouseEnter={(e) => e.currentTarget.play()}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.pause();
-                          e.currentTarget.currentTime = 0;
-                        }}
-                        onLoadedMetadata={(e) => {
-                          const target = e.target as HTMLVideoElement;
-                          setFileDims((prev) => ({
-                            ...prev,
-                            [entry.id]: { w: target.videoWidth, h: target.videoHeight },
-                          }));
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={url}
-                        alt={entry.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        onLoad={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          setFileDims((prev) => ({
-                            ...prev,
-                            [entry.id]: { w: target.naturalWidth, h: target.naturalHeight },
-                          }));
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 backdrop-blur-sm">
-                    {editingId === entry.id ? (
-                      <input
-                        autoFocus
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onBlur={() => handleRename(entry)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRename(entry);
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-xs text-white outline-none"
-                      />
-                    ) : (
-                      <div
-                        className="truncate text-xs text-white cursor-text"
-                        title={entry.name}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditingId(entry.id);
-                          setEditName(entry.name);
-                        }}
-                      >
-                        {entry.name}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPublishingEntry(entry);
-                    }}
-                    className="absolute top-1 right-8 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-sky-500 hover:text-white group-hover:opacity-100"
-                    title="Publish"
-                  >
-                    🚀
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDelete(entry, e)}
-                    className="absolute top-1 right-1 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100"
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </button>
-              );
-            })}
-          </div>
         ) : (
-          <ul>
-            {filteredEntries.map((entry) => {
-              const url = getFileUrl(connection, entry.relPath, { includeToken: true });
-              const styles = getFileStyles(entry);
-              const dims = fileDims[entry.id];
+          <div className="flex flex-col min-h-full">
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3">
+                {visibleEntries.map((entry) => {
+                  const url = getFileUrl(connection, entry.relPath, { includeToken: true });
+                  const styles = getFileStyles(entry);
 
-              return (
-                <li key={entry.id}>
-                  <button
-                    type="button"
-                    draggable={entry.kind === "file"}
-                    onDragStart={(event) => {
-                      if (entry.kind === "file") {
-                        event.dataTransfer.setData(
-                          FILE_ENTRY_MIME,
-                          JSON.stringify({
-                            workspaceId: connection.workspaceId,
-                            path: entry.relPath,
-                            name: entry.name,
-                            mime: entry.mime,
-                          })
-                        );
-                        event.dataTransfer.effectAllowed = "copy";
-                        event.dataTransfer.setData("DownloadURL", `${entry.mime}:${entry.name}:${url}`);
-                      }
-                    }}
-                    onClick={() => select(entry)}
-                    className={`group flex w-full items-center justify-between gap-3 border-l-4 px-3 py-2 text-left text-sm transition ${selected?.id === entry.id ? "bg-yellow-500/20" : ""
-                      } ${styles.list}`}
-                  >
-                    {/* Hidden media for metadata capture - REMOVED for memory optimization */}
-
-                    <div className="flex-1 min-w-0">
-                      {editingId === entry.id ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onBlur={() => handleRename(entry)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleRename(entry);
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-between gap-2">
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      draggable={entry.kind === "file"}
+                      onDragStart={(event) => {
+                        if (entry.kind === "file") {
+                          event.dataTransfer.setData(
+                            FILE_ENTRY_MIME,
+                            JSON.stringify({
+                              workspaceId: connection.workspaceId,
+                              path: entry.relPath,
+                              name: entry.name,
+                              mime: entry.mime,
+                            })
+                          );
+                          event.dataTransfer.effectAllowed = "copy";
+                          event.dataTransfer.setData("DownloadURL", `${entry.mime}:${entry.name}:${url}`);
+                        }
+                      }}
+                      onClick={() => select(entry)}
+                      className={`group relative flex aspect-square flex-col overflow-hidden rounded-lg border transition ${selected?.id === entry.id ? "ring-2 ring-yellow-500" : ""
+                        } ${styles.grid}`}
+                    >
+                      <div className="flex-1 w-full overflow-hidden bg-white/5">
+                        {entry.kind === "dir" ? (
+                          <div className="flex h-full items-center justify-center text-4xl">
+                            📁
+                          </div>
+                        ) : entry.mime.startsWith("video") ? (
+                          <video
+                            src={url}
+                            className="h-full w-full object-cover"
+                            preload="metadata"
+                            muted
+                            loop
+                            onMouseEnter={(e) => e.currentTarget.play()}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.pause();
+                              e.currentTarget.currentTime = 0;
+                            }}
+                            onLoadedMetadata={(e) => {
+                              const target = e.target as HTMLVideoElement;
+                              setFileDims((prev) => ({
+                                ...prev,
+                                [entry.id]: { w: target.videoWidth, h: target.videoHeight },
+                              }));
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={url}
+                            alt={entry.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            onLoad={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              setFileDims((prev) => ({
+                                ...prev,
+                                [entry.id]: { w: target.naturalWidth, h: target.naturalHeight },
+                              }));
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 backdrop-blur-sm">
+                        {editingId === entry.id ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onBlur={() => handleRename(entry)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRename(entry);
+                              if (e.key === "Escape") setEditingId(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-xs text-white outline-none"
+                          />
+                        ) : (
                           <div
-                            className="font-semibold text-white truncate"
+                            className="truncate text-xs text-white cursor-text"
                             title={entry.name}
                             onDoubleClick={(e) => {
                               e.stopPropagation();
@@ -530,28 +459,16 @@ export default function FileBrowser() {
                             }}
                           >
                             {entry.name}
-                            {entry.kind === "dir" ? "/" : ""}
                           </div>
-                          {dims && (
-                            <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono">
-                              {dims.w}x{dims.h} ({(() => {
-                                const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
-                                const div = gcd(dims.w, dims.h);
-                                return `${dims.w / div}:${dims.h / div}`;
-                              })()})
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-right text-xs text-slate-400">
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setPublishingEntry(entry);
                         }}
-                        className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-sky-400"
+                        className="absolute top-1 right-8 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-sky-500 hover:text-white group-hover:opacity-100"
                         title="Publish"
                       >
                         🚀
@@ -559,17 +476,129 @@ export default function FileBrowser() {
                       <button
                         type="button"
                         onClick={(e) => handleDelete(entry, e)}
-                        className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-red-400"
+                        className="absolute top-1 right-1 rounded bg-black/60 p-1 text-xs opacity-0 transition-opacity hover:bg-red-500 hover:text-white group-hover:opacity-100"
                         title="Delete"
                       >
                         🗑️
                       </button>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <ul>
+                {visibleEntries.map((entry) => {
+                  const url = getFileUrl(connection, entry.relPath, { includeToken: true });
+                  const styles = getFileStyles(entry);
+                  const dims = fileDims[entry.id];
+
+                  return (
+                    <li key={entry.id}>
+                      <button
+                        type="button"
+                        draggable={entry.kind === "file"}
+                        onDragStart={(event) => {
+                          if (entry.kind === "file") {
+                            event.dataTransfer.setData(
+                              FILE_ENTRY_MIME,
+                              JSON.stringify({
+                                workspaceId: connection.workspaceId,
+                                path: entry.relPath,
+                                name: entry.name,
+                                mime: entry.mime,
+                              })
+                            );
+                            event.dataTransfer.effectAllowed = "copy";
+                            event.dataTransfer.setData("DownloadURL", `${entry.mime}:${entry.name}:${url}`);
+                          }
+                        }}
+                        onClick={() => select(entry)}
+                        className={`group flex w-full items-center justify-between gap-3 border-l-4 px-3 py-2 text-left text-sm transition ${selected?.id === entry.id ? "bg-yellow-500/20" : ""
+                          } ${styles.list}`}
+                      >
+                        {/* Hidden media for metadata capture - REMOVED for memory optimization */}
+
+                        <div className="flex-1 min-w-0">
+                          {editingId === entry.id ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onBlur={() => handleRename(entry)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleRename(entry);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full rounded border border-sky-500/50 bg-black/50 px-1 py-0.5 text-white outline-none"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <div
+                                className="font-semibold text-white truncate"
+                                title={entry.name}
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingId(entry.id);
+                                  setEditName(entry.name);
+                                }}
+                              >
+                                {entry.name}
+                                {entry.kind === "dir" ? "/" : ""}
+                              </div>
+                              {dims && (
+                                <span className="flex-shrink-0 text-[10px] text-slate-500 font-mono">
+                                  {dims.w}x{dims.h} ({(() => {
+                                    const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+                                    const div = gcd(dims.w, dims.h);
+                                    return `${dims.w / div}:${dims.h / div}`;
+                                  })()})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-right text-xs text-slate-400">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPublishingEntry(entry);
+                            }}
+                            className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-sky-400"
+                            title="Publish"
+                          >
+                            🚀
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(entry, e)}
+                            className="opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-red-400"
+                            title="Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {visibleCount < filteredEntries.length && (
+              <div className="p-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + 30)}
+                  className="rounded-full bg-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:bg-white/20 hover:scale-105 active:scale-95"
+                >
+                  Load More ({filteredEntries.length - visibleCount} remaining)
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

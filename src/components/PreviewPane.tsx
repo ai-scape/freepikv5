@@ -8,6 +8,7 @@ import { useQueue } from "../state/queue";
 import { downloadBlob } from "../lib/providers/shared";
 import { callModelEndpoint, getProviderEnvVar, getProviderKey, type ModelProvider, type ProviderCallOptions } from "../lib/providers";
 import { buildFilename } from "../lib/filename";
+import { uploadToFal } from "../lib/fal";
 
 
 
@@ -382,7 +383,7 @@ export default function PreviewPane({
       // I need to upload the file to KIE/Fal first.
 
       // Let's import uploadToFal.
-      const { uploadToFal } = await import("../lib/fal");
+      // const { uploadToFal } = await import("../lib/fal");
 
       // Fetch the blob from the preview URL (which is local)
       const response = await fetch(previewUrl);
